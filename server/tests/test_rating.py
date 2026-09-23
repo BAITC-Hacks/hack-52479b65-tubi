@@ -28,7 +28,8 @@ class RatingTest(unittest.TestCase):
         self.assertEqual(evaluate(card)['improvements'], [])
 
     def test_blank_and_placeholders(self):
-        for value in (None, '', '  ', '\n\t', '?!?', 'ab', *PLACEHOLDERS, ' НЕ   ЗНАЮ! ', 'БЕЛГІСІЗ.'):
+        for value in (None, '', '  ', '\n\t', '?!?', 'ab', *PLACEHOLDERS,
+                      ' НЕ   ЗНАЮ! ', 'БЕЛГІСІЗ.', 'Не знаю .', 'белгісіз ! …'):
             with self.subTest(value=value):
                 self.assertFalse(filled(value))
                 self.assertEqual(evaluate(Card(data=value))['score'], 0)

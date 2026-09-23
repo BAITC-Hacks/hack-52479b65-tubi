@@ -39,7 +39,7 @@ PLACEHOLDERS = frozenset({
 
 def filled(value: str | None) -> bool:
     text = re.sub(r'\s+', ' ', value or '').strip()
-    normalized = text.casefold().rstrip('.!?…')
+    normalized = text.casefold().rstrip(' .!?…')
     return len(text) >= 3 and any(c.isalnum() for c in text) and normalized not in PLACEHOLDERS
 
 

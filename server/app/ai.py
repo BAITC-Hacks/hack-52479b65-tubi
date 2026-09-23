@@ -1,7 +1,7 @@
 """OpenAI preparation with verified excerpts and explicitly labelled local fallback."""
 import logging
 
-from openai import OpenAI
+from openai import APIConnectionError, APITimeoutError, AuthenticationError, OpenAI, RateLimitError
 
 from .ai_grounding import GroundedResult, grounded_card
 from .ai_questions import clarification_questions, extract_card, missing_fields, question_key
@@ -10,6 +10,18 @@ from .schemas import PrepareInput, PrepareResponse
 from .settings import Settings
 
 logger = logging.getLogger(__name__)
+
+
+def fallback_reason(error: Exception) -> str:
+    if isinstance(error, APITimeoutError):
+        return 'fallback_timeout'
+    if isinstance(error, AuthenticationError):
+        return 'fallback_auth'
+    if isinstance(error, RateLimitError):
+        return 'fallback_limit'
+    if isinstance(error, APIConnectionError):
+        return 'fallback_connection'
+    return 'fallback_error'
 
 
 def fallback(request: PrepareInput, warning: str | None = None, locale: Locale = 'ru') -> dict:
@@ -69,7 +81,9 @@ def prepare(request: PrepareInput, settings: Settings, locale: Locale = 'ru') ->
             if (not 3 <= len(questions) <= 5
                     or len({q.id.strip() for q in questions}) != len(questions)
                     or len({question_key(q.text) for q in questions}) != len(questions)
-                    or any(not q.id.strip() or not q.fields or not question_key(q.text) for q in questions)):
+                    or any(not q.id.strip() or len(q.id) > 80
+                           or not 1 <= len(q.fields) <= 10
+                           or not question_key(q.text) or len(q.text) > 6000 for q in questions)):
                 raise ValueError('Invalid clarification questions')
         card, rejected = grounded_card(result, request)
         # Retain clear source facts the model omitted, but never restore a field
@@ -93,4 +107,4 @@ def prepare(request: PrepareInput, settings: Settings, locale: Locale = 'ru') ->
     except Exception as exc:
         # Never log prompts, raw responses, exception bodies or credentials.
         logger.warning('AI fallback: %s', type(exc).__name__)
-        return fallback(request, translate('fallback_error', locale), locale)
+        return fallback(request, translate(fallback_reason(exc), locale), locale)

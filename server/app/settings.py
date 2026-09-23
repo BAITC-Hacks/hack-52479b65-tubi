@@ -3,7 +3,7 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values
 
 SERVER_DIR = Path(__file__).resolve().parents[1]
 PROJECT_DIR = SERVER_DIR.parent
@@ -18,9 +18,14 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> 'Settings':
-        load_dotenv(SERVER_DIR / '.env')
+        # Do not mutate os.environ: a later app instance must read fresh values.
+        # Explicit process variables take precedence, including an empty API key.
+        values = {**dotenv_values(SERVER_DIR / '.env', encoding='utf-8-sig'), **os.environ}
+        db_path = Path((values.get('TUBI_DB_PATH') or '').strip() or str(cls.db_path)).expanduser()
+        if not db_path.is_absolute():
+            db_path = PROJECT_DIR / db_path
         return cls(
-            db_path=Path(os.getenv('TUBI_DB_PATH') or str(cls.db_path)),
-            openai_api_key=os.getenv('OPENAI_API_KEY', '').strip(),
-            openai_model=os.getenv('OPENAI_MODEL') or cls.openai_model,
+            db_path=db_path.resolve(),
+            openai_api_key=(values.get('OPENAI_API_KEY') or '').strip(),
+            openai_model=(values.get('OPENAI_MODEL') or '').strip() or cls.openai_model,
         )

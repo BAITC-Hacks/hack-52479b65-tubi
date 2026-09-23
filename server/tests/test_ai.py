@@ -176,7 +176,7 @@ class AITest(ApiTestCase):
                 self.assertEqual(self.prepare()['mode'], 'fallback')
 
     def test_invalid_questions_fall_back(self):
-        for kind in ('too_few', 'same_id', 'same_text', 'no_fields', 'empty'):
+        for kind in ('too_few', 'same_id', 'same_text', 'no_fields', 'long_id', 'long_text', 'many_fields', 'empty'):
             result = self.model_result()
             if kind == 'too_few':
                 result['questions'] = result['questions'][:2]
@@ -186,6 +186,12 @@ class AITest(ApiTestCase):
                 result['questions'][1]['text'] = ' ЧТО нужно улучшить?! '
             elif kind == 'no_fields':
                 result['questions'][0]['fields'] = []
+            elif kind == 'long_id':
+                result['questions'][0]['id'] = 'q' * 81
+            elif kind == 'long_text':
+                result['questions'][0]['text'] = 'Что улучшить? ' * 500
+            elif kind == 'many_fields':
+                result['questions'][0]['fields'] = ['need'] * 11
             else:
                 result['questions'][0]['text'] = '  '
             with self.subTest(kind=kind):
@@ -257,6 +263,46 @@ class AITest(ApiTestCase):
             'question_id': 'q_data', 'fields': ['data'], 'question': 'Какие данные?', 'answer': '   ',
         }])
         self.assertEqual(self.prepare()['card']['data'], 'Доступны 100 отзывов в CSV.')
+
+    def test_unknown_optional_detail_preserves_known_fact(self):
+        self.request['stage'] = 'compose'
+        for answer in ('Не знаю', 'Нет', 'Белгісіз', 'Не знаю .'):
+            self.request['answers'] = [{
+                'question_id': 'detail_data_access', 'fields': ['data'],
+                'question': 'Как команда получит доступ к материалам?', 'answer': answer,
+            }]
+            with self.subTest(answer=answer):
+                self.assertEqual(self.prepare()['card']['data'], 'Доступны 100 отзывов в CSV.')
+
+    def test_explicit_unknown_answer_can_clear_source_fact(self):
+        self.request.update(stage='compose', answers=[{
+            'question_id': 'q_data', 'fields': ['data'],
+            'question': 'Какие данные доступны?', 'answer': 'Не знаю',
+        }])
+        self.assertIsNone(self.prepare()['card']['data'])
+
+    def test_empty_label_does_not_consume_the_next_field(self):
+        for locale, description, expected_result in (
+            ('ru', 'Данные:\nРезультат: Панель с темами отзывов', 'Панель с темами отзывов'),
+            ('kk', 'Деректер:\r\nНәтиже: Пікірлер тақырыптарының панелі', 'Пікірлер тақырыптарының панелі'),
+        ):
+            self.request['description'] = description
+            with self.subTest(locale=locale):
+                prepared = self.prepare(locale)
+                self.assertIsNone(prepared['card']['data'])
+                self.assertIn('data', prepared['missing_fields'])
+                self.assertEqual(prepared['card']['expected_result'], expected_result)
+
+    def test_live_recovery_keeps_explicitly_empty_label_unknown(self):
+        self.request['description'] = 'Данные:\nРезультат: Панель с темами отзывов'
+        result = self.model_result()
+        result['card'] = Card().model_dump()
+        result['evidence'] = []
+        self.live(result)
+        prepared = self.prepare()
+        self.assertEqual(prepared['mode'], 'live')
+        self.assertIsNone(prepared['card']['data'])
+        self.assertEqual(prepared['card']['expected_result'], 'Панель с темами отзывов')
 
     def test_clear_need_is_not_asked_again(self):
         self.request['description'] = 'Хотим сократить время обработки отзывов. Данные в CSV.'

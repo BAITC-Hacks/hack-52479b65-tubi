@@ -4,7 +4,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
 from app.ai import fallback
+from app.errors import register_error_handlers
 from app.main import create_app
 from app.schemas import PrepareInput, PrepareResponse, Proposal, Task, Team
 from app.seed import seed_records
@@ -44,6 +48,31 @@ class ContractTest(unittest.TestCase):
 
 
 class ErrorContractTest(ApiTestCase):
+    def test_method_not_allowed_preserves_allow_header(self):
+        application = FastAPI()
+        register_error_handlers(application)
+
+        @application.get('/example')
+        def example():
+            return {'ok': True}
+
+        with TestClient(application) as client:
+            response = client.delete('/example')
+        self.assertEqual(response.status_code, 405)
+        self.assertEqual(response.headers['allow'], 'GET')
+        self.assertEqual(response.json()['error']['code'], 'HTTP_405')
+
+    def test_extended_sqlite_lock_codes_are_retryable(self):
+        for code in (sqlite3.SQLITE_BUSY_SNAPSHOT, sqlite3.SQLITE_LOCKED_SHAREDCACHE):
+            with self.subTest(code=code):
+                error = sqlite3.OperationalError('private database detail')
+                error.sqlite_errorcode = code
+                with patch.object(self.app.state.database, 'session', side_effect=error):
+                    response = self.client.get('/api/tasks')
+                self.assertEqual(response.status_code, 503)
+                self.assertEqual(response.headers['retry-after'], '1')
+                self.assertNotIn('private', response.text)
+
     def test_database_busy_is_localized_and_does_not_expose_details(self):
         error = sqlite3.OperationalError('sensitive SQL and user content')
         error.sqlite_errorcode = sqlite3.SQLITE_BUSY

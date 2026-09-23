@@ -72,7 +72,10 @@ def extract_card(request: PrepareInput) -> Card:
     values = Card(title=request.description[:90], category=request.category, context=request.description).model_dump()
     for field, labels in ALIASES.items():
         label_pattern = '|'.join(re.escape(label) for label in (*labels, field))
-        match = re.search(rf'(?im)^\s*(?:[-*]\s*)?(?:{label_pattern})\s*:\s*([^\n;]+)', request.description)
+        match = re.search(
+            rf'(?im)^[^\S\r\n]*(?:[-*][^\S\r\n]*)?(?:{label_pattern})[^\S\r\n]*:[^\S\r\n]*([^\r\n;]*)',
+            request.description,
+        )
         if match:
             text = match.group(1).strip()
             values[field] = text if filled(text) else None
@@ -80,7 +83,7 @@ def extract_card(request: PrepareInput) -> Card:
     for field, pattern in CUES.items():
         # An explicit labelled value (including "unknown") takes precedence.
         labels = '|'.join(re.escape(label) for label in (*ALIASES[field], field))
-        if re.search(rf'(?im)^\s*(?:[-*]\s*)?(?:{labels})\s*:', request.description):
+        if re.search(rf'(?im)^[^\S\r\n]*(?:[-*][^\S\r\n]*)?(?:{labels})[^\S\r\n]*:', request.description):
             continue
         match = next((sentence.strip() for sentence in sentences if re.search(pattern, sentence, re.I)), None)
         if match:
@@ -90,8 +93,12 @@ def extract_card(request: PrepareInput) -> Card:
             continue
         for field in answer.fields:
             text = answer.answer if filled(answer.answer) else None
-            if text and answer.question_id.startswith('detail_') and values[field]:
-                text = f'{values[field]}\n{text}'[:6000]
+            if answer.question_id.startswith('detail_'):
+                # An unknown optional detail does not erase the known base fact.
+                if text is None:
+                    continue
+                if values[field]:
+                    text = f'{values[field]}\n{text}'[:6000]
             values[field] = text
     return Card.model_validate(values)
 
