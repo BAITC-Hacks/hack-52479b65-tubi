@@ -1,0 +1,30 @@
+{
+  "drafts": [
+    {"text": "Хотим быстрее разбирать отзывы покупателей.", "category": "analytics"},
+    {"text": "Заявки на ремонт теряются в переписке.", "category": "automation"},
+    {"text": "Нужен помощник для новых сотрудников.", "category": "education"},
+    {"text": "Как понять, какой контент интересен нашей аудитории?", "category": "marketing"},
+    {"text": "Хотим прогнозировать закупки для кофейни.", "category": "analytics"}
+  ],
+  "tasks": [
+    {"id": "task_reviews", "card": {"title": "Превратить отзывы клиентов в понятные инсайты", "category": "analytics", "context": "Сеть кофеен получает 300 отзывов в месяц. Управляющий вручную читает сообщения из разных источников.", "need": "Находить повторяющиеся проблемы и видеть динамику настроения гостей.", "users": "Управляющий сетью и маркетолог", "data": "Синтетическая CSV-выгрузка из 300 отзывов: текст, дата, оценка, филиал.", "expected_result": "Прототип с загрузкой CSV, группировкой тем и коротким отчётом по филиалам.", "success_criteria": "Не менее 80 из 100 контрольных отзывов отнесены к верной теме по оценке управляющего.", "constraints": "Прототип за две недели. Только обезличенные данные.", "contact": "Анна, demo@coffee.example", "interaction_format": "Созвон на 20 минут по вторникам, обратная связь в течение двух дней."}},
+    {"id": "task_requests", "card": {"title": "Собрать заявки на ремонт в одном месте", "category": "automation", "context": "Заявки приходят в мессенджеры и иногда теряются между сменами.", "need": "Видеть очередь заявок, исполнителя и статус решения.", "users": "Администраторы трёх учебных корпусов", "data": "Обезличенные примеры 50 заявок за прошлый месяц в таблице.", "expected_result": "Веб-форма подачи заявки и панель со статусами.", "success_criteria": "Все 10 контрольных заявок видны в панели, статус меняется и сохраняется.", "constraints": null, "contact": "Данияр, facilities@example.com", "interaction_format": "Один созвон в неделю и комментарии к прототипу."}},
+    {"id": "task_onboarding", "card": {"title": "Помочь новичкам освоиться в компании", "category": "education", "context": "Новые сотрудники задают одни и те же вопросы о внутренних процессах.", "need": "Сделать поиск ответов в инструкциях проще.", "users": "Новые сотрудники и HR-координатор", "data": "Пять учебных инструкций без персональных данных.", "expected_result": "Поиск по инструкциям с ответом и ссылкой на источник.", "success_criteria": null, "constraints": "Демонстрация на локальном компьютере.", "contact": "hr-demo@example.com", "interaction_format": null}},
+    {"id": "task_content", "card": {"title": "Понять, какие публикации интересны аудитории", "category": "marketing", "context": "Команда публикует материалы, но редко сравнивает их результаты.", "need": "Сопоставить темы постов и вовлечённость аудитории.", "users": "Контент-команда небольшого бренда", "data": "CSV со статистикой 80 синтетических публикаций.", "expected_result": null, "success_criteria": null, "constraints": null, "contact": null, "interaction_format": null}},
+    {"id": "task_stock", "card": {"title": "Планировать закупки кофейни точнее", "category": "analytics", "context": "Иногда продукты заканчиваются раньше следующей поставки.", "need": "Заранее оценивать, сколько продуктов заказывать.", "users": null, "data": null, "expected_result": null, "success_criteria": null, "constraints": null, "contact": null, "interaction_format": null}}
+  ],
+  "teams": [
+    {"id": "team_1", "name": "Tubi Team", "interests": ["analytics", "automation"], "skills": ["Python", "Frontend", "UX"], "technologies": ["React", "FastAPI"]},
+    {"id": "team_2", "name": "Data Nomads", "interests": ["analytics"], "skills": ["Аналитика", "Python"], "technologies": ["Pandas", "FastAPI"]},
+    {"id": "team_3", "name": "Next Step", "interests": ["education"], "skills": ["UX", "Frontend"], "technologies": ["React"]},
+    {"id": "team_4", "name": "Byte Club", "interests": ["automation"], "skills": ["Backend", "Frontend"], "technologies": ["Python", "React"]},
+    {"id": "team_5", "name": "Creative Lab", "interests": ["marketing"], "skills": ["Аналитика", "Дизайн"], "technologies": ["Python", "Figma"]}
+  ],
+  "proposals": [
+    {"id": "proposal_1", "task_id": "task_reviews", "team_id": "team_1", "idea": "Покажем темы отзывов и самые частые проблемы в простой панели.", "plan": "Изучим CSV, согласуем темы, соберём интерфейс и проверим 100 отзывов.", "deadline": "14 дней", "prototype_url": null},
+    {"id": "proposal_2", "task_id": "task_reviews", "team_id": "team_2", "idea": "Соберём отчёт с темами и примерами отзывов по каждому филиалу.", "plan": "Анализ данных, классификация тем, контрольная выборка, демонстрация.", "deadline": "12 дней", "prototype_url": null},
+    {"id": "proposal_3", "task_id": "task_requests", "team_id": "team_4", "idea": "Единая очередь заявок с понятными статусами.", "plan": "Согласуем поля формы, добавим очередь и историю изменения статусов.", "deadline": "10 дней", "prototype_url": null},
+    {"id": "proposal_4", "task_id": "task_onboarding", "team_id": "team_3", "idea": "Помощник по учебным инструкциям с указанием источников.", "plan": "Разметим документы, добавим поиск и проверим частые вопросы.", "deadline": "14 дней", "prototype_url": null},
+    {"id": "proposal_5", "task_id": "task_content", "team_id": "team_5", "idea": "Сравним вовлечённость публикаций по темам.", "plan": "Изучим таблицу, согласуем метрики и подготовим интерактивный отчёт.", "deadline": "7 дней", "prototype_url": null}
+  ]
+}
