@@ -10,8 +10,9 @@ import "./business.css";
 
 const steps: BusinessStep[] = ["description", "questions", "card", "review", "saved"];
 
-export default function BusinessPage({ existing, onDone, onCancel, onSaved }: {
+export default function BusinessPage({ existing, onDone, onCancel, onSaved, onBusyChange }: {
   existing?: Task; onDone: (task: Task) => void; onCancel: () => void; onSaved?: (task: Task) => void;
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const form = useBusinessForm(existing);
   const copy = useBusinessCopy();
@@ -23,6 +24,21 @@ export default function BusinessPage({ existing, onDone, onCancel, onSaved }: {
   const published = form.saved?.status === "published";
   const titleReady = (form.card.title ?? "").trim().length >= 3;
   const stepIndex = steps.indexOf(form.step);
+
+  useEffect(() => {
+    onBusyChange?.(form.busy);
+    return () => onBusyChange?.(false);
+  }, [form.busy, onBusyChange]);
+
+  useEffect(() => {
+    if (!form.busy) return;
+    const preventDeparture = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", preventDeparture);
+    return () => window.removeEventListener("beforeunload", preventDeparture);
+  }, [form.busy]);
 
   useEffect(() => {
     const target = focusField.current && document.getElementById(`card-${focusField.current}`);

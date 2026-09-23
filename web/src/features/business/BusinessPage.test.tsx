@@ -43,6 +43,46 @@ describe("business screens", () => {
   });
   afterEach(() => vi.resetAllMocks());
 
+  it("reports pending operations and protects reload only until they finish", async () => {
+    let finish!: (response: AIResponse) => void;
+    vi.mocked(api.prepareTask).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const onBusyChange = vi.fn();
+    const { unmount } = render(<BusinessPage onDone={vi.fn()} onCancel={vi.fn()} onBusyChange={onBusyChange} />);
+    const unload = () => {
+      const event = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    expect(onBusyChange).toHaveBeenLastCalledWith(false);
+    expect(unload()).toBe(false);
+    fireEvent.change(screen.getByLabelText("Ваша задача"), { target: { value: "Отзывы нашей кофейни" } });
+    fireEvent.click(screen.getByRole("button", { name: "Перейти к вопросам" }));
+    expect(onBusyChange).toHaveBeenLastCalledWith(true);
+    expect(unload()).toBe(true);
+    await act(async () => finish(prepared));
+    expect(onBusyChange).toHaveBeenLastCalledWith(false);
+    expect(unload()).toBe(false);
+    unmount();
+    expect(onBusyChange).toHaveBeenLastCalledWith(false);
+    expect(unload()).toBe(false);
+  });
+
+  it("clears the busy report and reload protection on unmount during a request", async () => {
+    let finish!: (response: AIResponse) => void;
+    vi.mocked(api.prepareTask).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const onBusyChange = vi.fn();
+    const { unmount } = render(<BusinessPage onDone={vi.fn()} onCancel={vi.fn()} onBusyChange={onBusyChange} />);
+    fireEvent.change(screen.getByLabelText("Ваша задача"), { target: { value: "Отзывы нашей кофейни" } });
+    fireEvent.click(screen.getByRole("button", { name: "Перейти к вопросам" }));
+    expect(onBusyChange).toHaveBeenLastCalledWith(true);
+    unmount();
+    expect(onBusyChange).toHaveBeenLastCalledWith(false);
+    const event = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+    await act(async () => finish(prepared));
+  });
+
   it("blocks blank descriptions and moves keyboard focus to the labeled input", async () => {
     const { user } = setup();
     expect(screen.getByRole("heading", { name: "Описание" })).toHaveFocus();

@@ -1,764 +1,249 @@
-import { useMemo, useState } from "react";
-import {
-  ArrowLeft,
-  ArrowRight,
-  ArrowUpRight,
-  Check,
-  ChevronDown,
-  Clock3,
-  FileText,
-  Filter,
-  GraduationCap,
-  Layers3,
-  LoaderCircle,
-  MessageSquare,
-  Plus,
-  Search,
-  Send,
-  Sparkles,
-  Trophy,
-  Users,
-  X,
-} from "lucide-react";
-import type {
-  Category,
-  Level,
-  Proposal,
-  Task,
-  Team,
-} from "../../../../contracts/types";
-import { categories, labels, levels } from "../../shared/constants";
+import { useRef, useState, type FormEvent } from "react";
+import { ArrowLeft, ArrowUpRight, Check, Clock3, Filter, MessageSquare, Plus, Search, Send, Trophy, Users, X } from "lucide-react";
+import type { CardField, Category, Level, Proposal, Task, Team } from "../../../../contracts/types";
+import { errorMessage } from "../../shared/http";
+import { useLocale } from "../../shared/i18n";
 import RatingPanel, { ScoreRing } from "../business/RatingPanel";
 import { confirmMilestone, createProposal, decideProposal } from "./api";
+import { useMarketplaceCopy } from "./locales";
 import TeamReview from "./TeamReview";
 import "./marketplace.css";
 
 type Role = "business" | "team";
-export function CatalogPage({
-  tasks,
-  proposals,
-  mine,
-  role,
-  onOpen,
-  onCreate,
-}: {
-  tasks: Task[];
-  proposals: Proposal[];
-  mine: boolean;
-  role: Role;
-  onOpen: (t: Task) => void;
-  onCreate: () => void;
+const asError = (cause: unknown) => cause instanceof Error ? cause : new Error();
+
+export function CatalogPage({ tasks, mine, role, onOpen, onCreate }: {
+  tasks: Task[]; proposals: Proposal[]; mine: boolean; role: Role;
+  onOpen: (task: Task) => void; onCreate: () => void;
 }) {
+  const copy = useMarketplaceCopy();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<Category | "all">("all");
   const [level, setLevel] = useState<Level | "all">("all");
   const [sort, setSort] = useState("score");
-  const available = tasks.filter((t) => mine || t.status === "published");
-  const visible = useMemo(
-    () =>
-      available
-        .filter(
-          (t) =>
-            (category === "all" || t.card.category === category) &&
-            (level === "all" || t.rating.level === level) &&
-            `${t.card.title} ${t.card.context} ${t.card.need}`
-              .toLowerCase()
-              .includes(query.toLowerCase()),
-        )
-        .sort((a, b) =>
-          sort === "score"
-            ? b.rating.score - a.rating.score
-            : b.created_at.localeCompare(a.created_at),
-        ),
-    [available, category, level, query, sort],
-  );
-  return (
-    <div className="page-enter">
-      <div className="page-heading">
-        <div>
-          <div className="eyebrow">ОТКРЫТЫЕ ВОЗМОЖНОСТИ</div>
-          <h1>
-            {mine
-              ? "Ваши задачи, новые возможности"
-              : "Реальные задачи. Ваши решения."}
-          </h1>
-          <p>
-            {mine
-              ? "Дополняйте карточки, повышайте готовность и знакомьтесь с командами."
-              : "Находите интересные вызовы бизнеса и превращайте знания в опыт."}
-          </p>
-        </div>
-        {role === "business" && (
-          <button className="button primary" onClick={onCreate}>
-            <Plus size={18} /> Создать задачу
-          </button>
-        )}
-      </div>
-      {!mine && (
-        <section className="hero-banner">
-          <div className="hero-copy">
-            <span className="hero-pill">
-              <Sparkles size={13} /> ОТ ИДЕИ К ДЕЙСТВИЮ
-            </span>
-            <h2>
-              Хорошая задача
-              <br />
-              притягивает сильную команду.
-            </h2>
-            <p>
-              Добавьте контекст, данные и критерии успеха.
-              <br />
-              Чем понятнее задача, тем выше её готовность.
-            </p>
-            {role === "business" ? (
-              <button onClick={onCreate}>
-                Сформулировать с помощником <ArrowRight size={16} />
-              </button>
-            ) : (
-              <button
-                onClick={() =>
-                  document.getElementById("catalog-search")?.focus()
-                }
-              >
-                Найти задачу для команды <ArrowRight size={16} />
-              </button>
-            )}
-          </div>
-          <div className="hero-art" aria-hidden="true">
-            <div className="art-orbit orbit-one" />
-            <div className="art-orbit orbit-two" />
-            <div className="floating-note">
-              <span>✦</span> Понятная цель
-            </div>
-            <div className="art-card">
-              <div className="art-card-top">
-                <span className="art-icon">
-                  <FileText size={20} />
-                </span>
-                <span>
-                  Ваша следующая
-                  <br />
-                  <b>большая идея</b>
-                </span>
-                <span className="art-spark">✦</span>
-              </div>
-              <div className="art-lines">
-                <i />
-                <i />
-              </div>
-              <div className="art-progress">
-                <span>Готовность к старту</span>
-                <b>90 / 100</b>
-              </div>
-              <div className="art-track">
-                <i />
-              </div>
-              <div className="art-check">
-                <Check size={13} /> Всё готово для первого шага
-              </div>
-            </div>
-            <div className="floating-team">
-              <div className="mini-avatars">
-                <b>А</b>
-                <b>Д</b>
-                <b>М</b>
-              </div>
-              <span>
-                Команды ждут
-                <br />
-                <strong>ваших задач</strong>
-              </span>
-            </div>
-            <span className="art-plus plus-one">+</span>
-            <span className="art-plus plus-two">✦</span>
-          </div>
-        </section>
-      )}
-      <div className="stats-row">
-        <div>
-          <span className="stat-icon lavender">
-            <Layers3 size={19} />
-          </span>
-          <div>
-            <strong>{available.length.toString().padStart(2, "0")}</strong>
-            <span>задач в пространстве</span>
-          </div>
-        </div>
-        <div>
-          <span className="stat-icon mint">
-            <Check size={19} />
-          </span>
-          <div>
-            <strong>
-              {available
-                .filter((t) => t.rating.score >= 70)
-                .length.toString()
-                .padStart(2, "0")}
-            </strong>
-            <span>готовы к совместной работе</span>
-          </div>
-        </div>
-        <div>
-          <span className="stat-icon peach">
-            <MessageSquare size={19} />
-          </span>
-          <div>
-            <strong>{proposals.length.toString().padStart(2, "0")}</strong>
-            <span>предложений от команд</span>
-          </div>
-        </div>
-      </div>
-      <div className="catalog-title">
-        <h2>
-          {mine ? "Мои карточки" : "Каталог задач"}{" "}
-          <span>{visible.length}</span>
-        </h2>
-        <span className="small muted">Выбирайте сами. Все задачи открыты.</span>
-      </div>
-      <div className="catalog-tools">
-        <div className="search-box">
-          <Search size={17} />
-          <input
-            id="catalog-search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Найти задачу по названию или описанию"
-            aria-label="Поиск задач"
-          />
-          {query && (
-            <button onClick={() => setQuery("")} aria-label="Очистить поиск">
-              <X size={15} />
-            </button>
-          )}
-        </div>
-        <label className="filter-select">
-          <Filter size={15} />
-          <select
-            aria-label="Уровень готовности"
-            value={level}
-            onChange={(e) => setLevel(e.target.value as Level | "all")}
-          >
-            <option value="all">Любая готовность</option>
-            {Object.entries(levels).map(([key, label]) => (
-              <option value={key} key={key}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="sort-select">
-          <select
-            aria-label="Сортировка задач"
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-          >
-            <option value="score">По готовности ↓</option>
-            <option value="newest">Сначала новые</option>
-          </select>
-        </label>
-      </div>
-      <div className="category-tabs">
-        <button
-          className={category === "all" ? "active" : ""}
-          onClick={() => setCategory("all")}
-        >
-          Все направления
-        </button>
-        {Object.entries(categories)
-          .filter(([key]) => key !== "other")
-          .map(([key, label]) => (
-            <button
-              className={category === key ? "active" : ""}
-              key={key}
-              onClick={() => setCategory(key as Category)}
-            >
-              {label}
-            </button>
-          ))}
-      </div>
-      <div className="task-grid">
-        {visible.map((task) => (
-          <button
-            className="task-card"
-            onClick={() => onOpen(task)}
-            key={task.id}
-          >
-            <div className="task-card-top">
-              <span className={`category-tag tag-${task.card.category}`}>
-                {categories[task.card.category]}
-              </span>
-              <ScoreRing score={task.rating.score} />
-            </div>
-            <h3>{task.card.title || "Задача без названия"}</h3>
-            <p className="task-summary">
-              {task.card.expected_result || task.card.need || task.card.context}
-            </p>
-            <div className="task-metadata">
-              <span>
-                <Users size={13} />
-                {task.card.users || "Пользователи уточняются"}
-              </span>
-            </div>
-            <div className="task-card-footer">
-              <span className={`readiness readiness-${task.rating.level}`}>
-                <i />
-                {task.status === "draft"
-                  ? "Не опубликована"
-                  : levels[task.rating.level]}
-              </span>
-              <span className="card-link">
-                Подробнее <ArrowUpRight size={16} />
-              </span>
-            </div>
-          </button>
-        ))}
-      </div>
-      {!visible.length && (
-        <div className="empty-state">
-          <Search size={30} />
-          <h3>Пока ничего не нашлось</h3>
-          <p>Попробуйте другую формулировку или сбросьте фильтры.</p>
-          <button
-            className="button secondary"
-            onClick={() => {
-              setQuery("");
-              setCategory("all");
-              setLevel("all");
-            }}
-          >
-            Сбросить фильтры
-          </button>
-        </div>
-      )}
+  const available = tasks.filter((task) => mine || task.status === "published");
+  const search = query.trim().toLocaleLowerCase();
+  const filtered = Boolean(search || category !== "all" || level !== "all");
+  const visible = available.filter((task) =>
+    (category === "all" || task.card.category === category) &&
+    (level === "all" || task.rating.level === level) &&
+    [task.card.title, task.card.context, task.card.need, task.card.expected_result]
+      .filter(Boolean).join(" ").toLocaleLowerCase().includes(search),
+  ).sort((a, b) => sort === "score" ? b.rating.score - a.rating.score : b.created_at.localeCompare(a.created_at));
+  function reset() { setQuery(""); setCategory("all"); setLevel("all"); }
+  return <div className="page-enter">
+    <div className="page-heading">
+      <div><h1>{mine ? copy.mine : copy.catalog}</h1><p>{mine ? copy.mineHint : copy.catalogHint}</p></div>
+      {role === "business" && <button className="button primary" onClick={onCreate}><Plus size={18} aria-hidden="true" />{copy.create}</button>}
     </div>
-  );
+    <div className="catalog-tools">
+      <div className="search-box">
+        <Search size={17} aria-hidden="true" />
+        <input id="catalog-search" value={query} onChange={(event) => setQuery(event.target.value)}
+          placeholder={copy.searchHint} aria-label={copy.search} />
+        {query && <button onClick={() => setQuery("")} aria-label={copy.clearSearch}><X size={15} aria-hidden="true" /></button>}
+      </div>
+      <label className="filter-select"><Filter size={15} aria-hidden="true" />
+        <select aria-label={copy.readiness} value={level} onChange={(event) => setLevel(event.target.value as Level | "all")}>
+          <option value="all">{copy.anyReadiness}</option>
+          {Object.entries(copy.levels).map(([key, label]) => <option value={key} key={key}>{label}</option>)}
+        </select>
+      </label>
+      <label className="sort-select"><select aria-label={copy.sort} value={sort} onChange={(event) => setSort(event.target.value)}>
+        <option value="score">{copy.scoreSort}</option><option value="newest">{copy.newest}</option>
+      </select></label>
+    </div>
+    <div className="category-tabs" role="group" aria-label={copy.directions}>
+      <button aria-pressed={category === "all"} className={category === "all" ? "active" : ""} onClick={() => setCategory("all")}>{copy.allDirections}</button>
+      {Object.entries(copy.categories).map(([key, label]) => <button key={key} aria-pressed={category === key}
+        className={category === key ? "active" : ""} onClick={() => setCategory(key as Category)}>{label}</button>)}
+    </div>
+    <div className="catalog-title">
+      <p className="small muted" role="status">{copy.found}: {visible.length} {copy.of} {available.length}</p>
+      {filtered && <button className="text-button" onClick={reset}>{copy.reset}</button>}
+    </div>
+    <div className="task-grid">{visible.map((task) => <button className="task-card" onClick={() => onOpen(task)} key={task.id}>
+      <div className="task-card-top"><span className={"category-tag tag-" + task.card.category}>{copy.categories[task.card.category]}</span><ScoreRing score={task.rating.score} /></div>
+      <h3>{task.card.title || copy.untitled}</h3>
+      <p className="task-summary">{task.card.expected_result || task.card.need || task.card.context}</p>
+      <div className="task-metadata"><span><Users size={13} aria-hidden="true" />{task.card.users || copy.usersUnknown}</span></div>
+      <div className="task-card-footer">
+        <span className={"readiness readiness-" + task.rating.level}><i />{task.status === "draft" ? copy.unpublished : copy.levels[task.rating.level]}</span>
+        <span className="card-link">{copy.details}<ArrowUpRight size={16} aria-hidden="true" /></span>
+      </div>
+    </button>)}</div>
+    {!visible.length && <div className="empty-state"><Search size={30} aria-hidden="true" />
+      <h2>{filtered ? copy.noResults : copy.noTasks}</h2>
+      <p>{filtered ? copy.noResultsHint : mine ? copy.noMineHint : copy.noTasksHint}</p>
+    </div>}
+  </div>;
 }
 
-export function DetailPage({
-  task,
-  teams,
-  proposals,
-  role,
-  onBack,
-  onEdit,
-  onRefresh,
-  notify,
-}: {
-  task: Task;
-  teams: Team[];
-  proposals: Proposal[];
-  role: Role;
-  onBack: () => void;
-  onEdit: () => void;
-  onRefresh: () => Promise<void>;
-  notify: (m: string) => void;
+function ProposalForm({ task, teams, onCreated, onRefresh, notify }: {
+  task: Task; teams: Team[]; onCreated: (proposal: Proposal) => void; onRefresh: () => Promise<void>; notify: (text: string) => void;
 }) {
+  const copy = useMarketplaceCopy();
+  const { locale } = useLocale();
   const [teamId, setTeamId] = useState(teams[0]?.id || "");
   const [idea, setIdea] = useState("");
   const [plan, setPlan] = useState("");
   const [deadline, setDeadline] = useState("");
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  const [error, setError] = useState<Error | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const operation = useRef(false);
+  const valid = Boolean(teamId && idea.trim().length >= 5 && plan.trim().length >= 5 && deadline.trim());
+  async function refresh() {
     setBusy(true);
-    setError("");
-    try {
-      await createProposal(task.id, {
-        team_id: teamId,
-        idea,
-        plan,
-        deadline,
-        prototype_url: url.trim() || null,
-      });
-      setIdea("");
-      setPlan("");
-      setDeadline("");
-      setUrl("");
-      notify("Предложение отправлено. Решение примет представитель бизнеса.");
-      await onRefresh();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
+    try { await onRefresh(); setRefreshFailed(false); }
+    catch { setRefreshFailed(true); }
+    finally { setBusy(false); }
   }
-  return (
-    <div className="page-enter">
-      <button className="text-button back" onClick={onBack}>
-        <ArrowLeft size={16} /> Каталог задач
-      </button>
-      <div className="page-heading detail-heading">
-        <div>
-          <span className={`category-tag tag-${task.card.category}`}>
-            {categories[task.card.category]}
-          </span>
-          <h1>{task.card.title || "Задача без названия"}</h1>
-          <div className="detail-meta">
-            <span className={`readiness readiness-${task.rating.level}`}>
-              <i />
-              {levels[task.rating.level]}
-            </span>
-            <span>
-              {task.status === "published"
-                ? "Открыта для всех команд"
-                : "Сохранена, ещё не опубликована"}
-            </span>
-          </div>
-        </div>
-        {role === "business" && (
-          <button className="button secondary" onClick={onEdit}>
-            Редактировать
-          </button>
-        )}
-      </div>
-      <div className="editor-layout">
-        <div>
-          <section className="panel detail-content">
-            {Object.entries(labels)
-              .filter(([key]) => key !== "title")
-              .map(([key, label]) => (
-                <div key={key}>
-                  <h3>{label}</h3>
-                  <p
-                    className={
-                      task.card[key as keyof typeof task.card] ? "" : "muted"
-                    }
-                  >
-                    {task.card[key as keyof typeof task.card] ||
-                      "Пока не указано — можно уточнить у бизнеса."}
-                  </p>
-                </div>
-              ))}
-          </section>
-          {role === "team" && task.status === "published" && (
-            <form className="panel proposal-form" onSubmit={submit}>
-              <div className="section-heading">
-                <div className="icon-tile violet">
-                  <Send size={21} />
-                </div>
-                <div>
-                  <h2>Предложите своё решение</h2>
-                  <p>Расскажите, как ваша команда подойдёт к задаче.</p>
-                </div>
-              </div>
-              {error && (
-                <div className="error-box" role="alert">
-                  {error}
-                </div>
-              )}
-              <label>
-                <span>Ваша команда</span>
-                <select
-                  required
-                  value={teamId}
-                  onChange={(e) => setTeamId(e.target.value)}
-                >
-                  {teams.map((t) => (
-                    <option value={t.id} key={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>Идея решения</span>
-                <textarea
-                  required
-                  minLength={5}
-                  maxLength={3000}
-                  rows={3}
-                  value={idea}
-                  onChange={(e) => setIdea(e.target.value)}
-                  placeholder="Что вы предлагаете и почему это поможет?"
-                />
-              </label>
-              <label>
-                <span>Короткий план</span>
-                <textarea
-                  required
-                  minLength={5}
-                  maxLength={3000}
-                  rows={3}
-                  value={plan}
-                  onChange={(e) => setPlan(e.target.value)}
-                  placeholder="С чего начнёте и какие этапы пройдёте?"
-                />
-              </label>
-              <div className="two-columns">
-                <label>
-                  <span>Предполагаемый срок</span>
-                  <input
-                    required
-                    maxLength={200}
-                    value={deadline}
-                    onChange={(e) => setDeadline(e.target.value)}
-                    placeholder="Например, 14 дней"
-                  />
-                </label>
-                <label>
-                  <span>Ссылка на прототип · необязательно</span>
-                  <input
-                    type="url"
-                    maxLength={1000}
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    placeholder="https://…"
-                  />
-                </label>
-              </div>
-              <button className="button primary" disabled={busy || !teamId}>
-                {busy ? (
-                  <LoaderCircle className="spin" size={16} />
-                ) : (
-                  <Send size={16} />
-                )}{" "}
-                Отправить предложение
-              </button>
-            </form>
-          )}
-          <section className="proposals-section">
-            <h2>
-              Предложения команд{" "}
-              <span className="count-label">{proposals.length}</span>
-            </h2>
-            {proposals.length ? (
-              proposals.map((p) => (
-                <ProposalCard
-                  key={p.id}
-                  proposal={p}
-                  team={teams.find((t) => t.id === p.team_id)}
-                  role={role}
-                  onRefresh={onRefresh}
-                  notify={notify}
-                />
-              ))
-            ) : (
-              <div className="panel empty-small">
-                Первое предложение может стать началом большого проекта.
-              </div>
-            )}
-          </section>
-        </div>
-        <RatingPanel rating={task.rating} />
-      </div>
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!valid || operation.current || saved) return;
+    operation.current = true;
+    setBusy(true); setError(null);
+    try {
+      const proposal = await createProposal(task.id, { team_id: teamId, idea: idea.trim(), plan: plan.trim(), deadline: deadline.trim(), prototype_url: url.trim() || null });
+      setSaved(true); onCreated(proposal); notify(copy.sent);
+    } catch (cause) {
+      setError(asError(cause)); setBusy(false); operation.current = false; return;
+    }
+    await refresh();
+    operation.current = false;
+  }
+  if (saved) return <section className="panel proposal-form">
+    <p role="status">{copy.sent}</p>
+    {refreshFailed && <div className="notice"><p>{copy.refreshFailed}</p><button className="button secondary" disabled={busy} onClick={() => void refresh()}>{copy.refresh}</button></div>}
+  </section>;
+  return <form className="panel proposal-form" onSubmit={(event) => void submit(event)}>
+    <div className="section-heading"><div className="icon-tile violet"><Send size={21} aria-hidden="true" /></div>
+      <div><h2>{copy.offerTitle}</h2><p>{copy.offerHint}</p></div>
     </div>
-  );
+    {error && <div className="error-box" role="alert">{errorMessage(error, locale)}</div>}
+    <fieldset disabled={busy} aria-busy={busy}>
+      <label><span>{copy.team}</span><select required value={teamId} onChange={(event) => setTeamId(event.target.value)}>
+        {teams.map((team) => <option value={team.id} key={team.id}>{team.name}</option>)}
+      </select></label>
+      {!teams.length && <p className="notice">{copy.noTeams}</p>}
+      <label><span>{copy.idea}</span><textarea required minLength={5} maxLength={3000} rows={3} value={idea} onChange={(event) => setIdea(event.target.value)} placeholder={copy.ideaHint} /></label>
+      <label><span>{copy.plan}</span><textarea required minLength={5} maxLength={3000} rows={3} value={plan} onChange={(event) => setPlan(event.target.value)} placeholder={copy.planHint} /></label>
+      <div className="two-columns">
+        <label><span>{copy.deadline}</span><input required maxLength={200} value={deadline} onChange={(event) => setDeadline(event.target.value)} placeholder={copy.deadlineHint} /></label>
+        <label><span>{copy.prototype}</span><input type="url" maxLength={1000} value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://…" /></label>
+      </div>
+      <button className="button primary" disabled={busy || !valid}><Send size={16} aria-hidden="true" />{busy ? copy.sending : copy.send}</button>
+    </fieldset>
+  </form>;
 }
 
-function ProposalCard({
-  proposal,
-  team,
-  role,
-  onRefresh,
-  notify,
-  taskTitle,
-  onOpen,
-}: {
-  proposal: Proposal;
-  team?: Team;
-  role: Role;
-  onRefresh: () => Promise<void>;
-  notify: (m: string) => void;
-  taskTitle?: string;
-  onOpen?: () => void;
+export function DetailPage({ task, teams, proposals, role, onBack, onEdit, onRefresh, notify }: {
+  task: Task; teams: Team[]; proposals: Proposal[]; role: Role;
+  onBack: () => void; onEdit: () => void; onRefresh: () => Promise<void>; notify: (text: string) => void;
 }) {
+  const copy = useMarketplaceCopy();
+  const [created, setCreated] = useState<Proposal | null>(null);
+  const visible = created?.task_id === task.id && !proposals.some((proposal) => proposal.id === created.id) ? [...proposals, created] : proposals;
+  return <div className="page-enter">
+    <button className="text-button back" onClick={onBack}><ArrowLeft size={16} aria-hidden="true" />{copy.catalog}</button>
+    <div className="page-heading detail-heading"><div>
+      <span className={"category-tag tag-" + task.card.category}>{copy.categories[task.card.category]}</span>
+      <h1>{task.card.title || copy.untitled}</h1>
+      <div className="detail-meta"><span className={"readiness readiness-" + task.rating.level}><i />{copy.levels[task.rating.level]}</span><span>{task.status === "published" ? copy.open : copy.draft}</span></div>
+    </div>{role === "business" && <button className="button secondary" onClick={onEdit}>{copy.edit}</button>}</div>
+    <div className="editor-layout"><div>
+      <section className="panel detail-content">
+        {Object.entries(copy.labels).filter(([key]) => key !== "title").map(([key, label]) => <div key={key}><h3>{label}</h3>
+          <p className={task.card[key as CardField] ? "" : "muted"}>{task.card[key as CardField] || copy.unknown}</p>
+        </div>)}
+      </section>
+      {role === "team" && task.status === "published" && <ProposalForm key={task.id} task={task} teams={teams} onCreated={setCreated} onRefresh={onRefresh} notify={notify} />}
+      <section className="proposals-section"><h2>{copy.offers} <span className="count-label">{visible.length}</span></h2>
+        {visible.length ? visible.map((proposal) => <ProposalCard key={proposal.id} proposal={proposal} team={teams.find((team) => team.id === proposal.team_id)} role={role} onRefresh={onRefresh} notify={notify} />)
+          : <div className="panel empty-small">{copy.noOffers}</div>}
+      </section>
+    </div><RatingPanel rating={task.rating} /></div>
+  </div>;
+}
+
+function ProposalCard({ proposal, team, role, onRefresh, notify, taskTitle, onOpen }: {
+  proposal: Proposal; team?: Team; role: Role; onRefresh: () => Promise<void>; notify: (text: string) => void; taskTitle?: string; onOpen?: () => void;
+}) {
+  const copy = useMarketplaceCopy();
+  const { locale } = useLocale();
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  async function act(action: "accepted" | "rejected" | "milestone") {
+  const [error, setError] = useState<Error | null>(null);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const [updated, setUpdated] = useState<Proposal | null>(null);
+  const operation = useRef(false);
+  const current = updated ? { ...proposal, ...updated, review: proposal.review ?? updated.review } : proposal;
+  async function refresh() {
     setBusy(true);
-    setError("");
-    try {
-      if (action === "milestone") await confirmMilestone(proposal.id);
-      else await decideProposal(proposal.id, action);
-      notify(
-        action === "milestone"
-          ? "Этап подтверждён. Команда получила 50 баллов."
-          : action === "accepted"
-            ? "Вы выбрали команду для совместной работы."
-            : "Решение сохранено.",
-      );
-      await onRefresh();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
+    try { await onRefresh(); setRefreshFailed(false); }
+    catch { setRefreshFailed(true); }
+    finally { setBusy(false); }
   }
-  return (
-    <article className="panel proposal-card">
-      <div className="proposal-header">
-        <span className="proposal-avatar">
-          {(team?.name || "К").slice(0, 1)}
-        </span>
-        <div>
-          <h3>{team?.name || proposal.team_id}</h3>
-          <p>{team?.skills.join(" · ")}</p>
-        </div>
-        <span className={`proposal-status ${proposal.status}`}>
-          {proposal.status === "pending"
-            ? "На рассмотрении"
-            : proposal.status === "accepted"
-              ? "Команда выбрана"
-              : "Отклонено"}
-        </span>
-      </div>
-      {taskTitle && (
-        <button className="text-button proposal-task-link" onClick={onOpen}>
-          {taskTitle}
-          <ArrowUpRight size={13} />
-        </button>
-      )}
-      <p className="proposal-idea">{proposal.idea}</p>
-      <p className="proposal-plan">
-        <b>План:</b> {proposal.plan}
-      </p>
-      <div className="proposal-links">
-        <span>
-          <Clock3 size={14} />
-          {proposal.deadline}
-        </span>
-        {proposal.prototype_url && (
-          <a href={proposal.prototype_url} target="_blank" rel="noreferrer">
-            Открыть прототип <ArrowUpRight size={14} />
-          </a>
-        )}
-      </div>
-      {error && (
-        <div className="error-box" role="alert">
-          {error}
-        </div>
-      )}
-      {role === "business" && proposal.status === "pending" && (
-        <div className="proposal-actions">
-          <button
-            className="button secondary small-button"
-            disabled={busy}
-            onClick={() => act("rejected")}
-          >
-            Отклонить
-          </button>
-          <button
-            className="button primary small-button"
-            disabled={busy}
-            onClick={() => act("accepted")}
-          >
-            {busy ? (
-              <LoaderCircle className="spin" size={14} />
-            ) : (
-              <Check size={14} />
-            )}{" "}
-            Выбрать команду
-          </button>
-        </div>
-      )}
-      {proposal.status === "accepted" && (
-        <div className="milestone-row">
-          {proposal.milestone_confirmed ? (
-            <span>
-              <Trophy size={16} /> Этап подтверждён · +{proposal.points} баллов
-              команде
-            </span>
-          ) : role === "business" ? (
-            <>
-              <p>
-                Начислите баллы после фактического выполнения согласованного
-                этапа.
-              </p>
-              <button
-                className="button secondary small-button"
-                disabled={busy}
-                onClick={() => act("milestone")}
-              >
-                <Check size={14} /> Подтвердить выполненный этап
-              </button>
-            </>
-          ) : (
-            <p>
-              Баллы за прогресс появятся после подтверждения этапа бизнесом.
-            </p>
-          )}
-        </div>
-      )}
-      <TeamReview proposal={proposal} role={role} onRefresh={onRefresh} />
-    </article>
-  );
+  async function act(action: "accepted" | "rejected" | "milestone") {
+    if (operation.current) return;
+    operation.current = true;
+    setBusy(true); setError(null);
+    try {
+      const result = action === "milestone" ? await confirmMilestone(current.id) : await decideProposal(current.id, action);
+      setUpdated(result);
+      notify(action === "milestone" ? copy.milestoneSaved : action === "accepted" ? copy.chosen : copy.decisionSaved);
+    } catch (cause) {
+      setError(asError(cause)); setBusy(false); operation.current = false; return;
+    }
+    await refresh();
+    operation.current = false;
+  }
+  return <article className="panel proposal-card">
+    <div className="proposal-header"><span className="proposal-avatar" aria-hidden="true">{(team?.name || current.team_id).slice(0, 1)}</span>
+      <div><h3>{team?.name || current.team_id}</h3><p>{team?.skills.join(" · ")}</p></div>
+      <span className={"proposal-status " + current.status}>{copy[current.status]}</span>
+    </div>
+    {taskTitle && <button className="text-button proposal-task-link" onClick={onOpen}>{taskTitle}<ArrowUpRight size={13} aria-hidden="true" /></button>}
+    <p className="proposal-idea">{current.idea}</p><p className="proposal-plan"><b>{copy.planLabel}:</b> {current.plan}</p>
+    <div className="proposal-links"><span><Clock3 size={14} aria-hidden="true" />{current.deadline}</span>
+      {current.prototype_url && <a href={current.prototype_url} target="_blank" rel="noreferrer">{copy.openPrototype}<ArrowUpRight size={14} aria-hidden="true" /></a>}
+    </div>
+    {error && <div className="error-box" role="alert">{errorMessage(error, locale)}</div>}
+    {refreshFailed && <div className="notice"><p>{copy.refreshFailed}</p><button className="text-button" disabled={busy} onClick={() => void refresh()}>{copy.refresh}</button></div>}
+    {role === "business" && current.status === "pending" && <div className="proposal-actions">
+      <button className="button secondary small-button" disabled={busy} onClick={() => void act("rejected")}>{copy.reject}</button>
+      <button className="button primary small-button" disabled={busy} onClick={() => void act("accepted")}><Check size={14} aria-hidden="true" />{copy.accept}</button>
+    </div>}
+    {current.status === "accepted" && <div className="milestone-row">
+      {current.milestone_confirmed ? <span><Trophy size={16} aria-hidden="true" />{copy.milestone} · +{current.points} {copy.points}</span>
+        : role === "business" ? <><p>{copy.milestoneHint}</p><button className="button secondary small-button" disabled={busy} onClick={() => void act("milestone")}><Check size={14} aria-hidden="true" />{copy.confirmMilestone}</button></>
+        : <p>{copy.awaitingMilestone}</p>}
+    </div>}
+    <TeamReview proposal={current} role={role} onRefresh={onRefresh} />
+  </article>;
 }
 
-export function ProposalsPage({
-  proposals,
-  teams,
-  tasks,
-  role,
-  onRefresh,
-  onOpen,
-  notify,
-}: {
-  proposals: Proposal[];
-  teams: Team[];
-  tasks: Task[];
-  role: Role;
-  onRefresh: () => Promise<void>;
-  onOpen: (task: Task) => void;
-  notify: (m: string) => void;
+export function ProposalsPage({ proposals, teams, tasks, role, onRefresh, onOpen, notify }: {
+  proposals: Proposal[]; teams: Team[]; tasks: Task[]; role: Role;
+  onRefresh: () => Promise<void>; onOpen: (task: Task) => void; notify: (text: string) => void;
 }) {
+  const copy = useMarketplaceCopy();
   const [status, setStatus] = useState("all");
-  const visible = proposals.filter(
-    (p) => status === "all" || p.status === status,
-  );
-  return (
-    <div className="page-enter">
-      <div className="page-heading">
-        <div>
-          <div className="eyebrow">СОВМЕСТНАЯ РАБОТА</div>
-          <h1>Идеи команд для ваших задач</h1>
-          <p>
-            Сравнивайте подходы. Решение о сотрудничестве всегда принимает
-            бизнес.
-          </p>
-        </div>
-      </div>
-      <div className="category-tabs">
-        {[
-          ["all", "Все предложения"],
-          ["pending", "На рассмотрении"],
-          ["accepted", "Выбранные"],
-          ["rejected", "Отклонённые"],
-        ].map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setStatus(key)}
-            className={status === key ? "active" : ""}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <div className="proposal-list">
-        {visible.map((p) => {
-          const task = tasks.find((t) => t.id === p.task_id);
-          return (
-            <ProposalCard
-              key={p.id}
-              proposal={p}
-              team={teams.find((t) => t.id === p.team_id)}
-              role={role}
-              onRefresh={onRefresh}
-              notify={notify}
-              taskTitle={task?.card.title || "Задача"}
-              onOpen={() => task && onOpen(task)}
-            />
-          );
-        })}
-      </div>
-      {!visible.length && (
-        <div className="empty-state">
-          <MessageSquare size={28} />
-          <h3>Здесь пока тихо</h3>
-          <p>Предложения появятся, когда команды откликнутся на задачи.</p>
-        </div>
-      )}
+  const visible = proposals.filter((proposal) => status === "all" || proposal.status === status);
+  return <div className="page-enter">
+    <div className="page-heading"><div><h1>{copy.offersTitle}</h1><p>{copy.offersHint}</p></div></div>
+    <div className="category-tabs" role="group" aria-label={copy.statuses}>
+      {[["all", copy.allOffers], ["pending", copy.pending], ["accepted", copy.acceptedFilter], ["rejected", copy.rejectedFilter]].map(([key, label]) =>
+        <button key={key} aria-pressed={status === key} onClick={() => setStatus(key)} className={status === key ? "active" : ""}>{label} · {key === "all" ? proposals.length : proposals.filter((proposal) => proposal.status === key).length}</button>)}
     </div>
-  );
+    <div className="proposal-list">{visible.map((proposal) => {
+      const task = tasks.find((item) => item.id === proposal.task_id);
+      return <ProposalCard key={proposal.id} proposal={proposal} team={teams.find((team) => team.id === proposal.team_id)} role={role} onRefresh={onRefresh} notify={notify} taskTitle={task?.card.title || copy.task} onOpen={() => task && onOpen(task)} />;
+    })}</div>
+    {!visible.length && <div className="empty-state"><MessageSquare size={28} aria-hidden="true" /><h2>{status === "all" ? copy.noOffers : copy.noFilteredOffers}</h2>
+      {status !== "all" && <button className="button secondary" onClick={() => setStatus("all")}>{copy.allOffers}</button>}
+    </div>}
+  </div>;
 }
