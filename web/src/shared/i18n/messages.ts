@@ -1,0 +1,45 @@
+import type { Locale } from "./index";
+
+const ru = {
+  language: "Язык интерфейса", home: "Tubi — на главную", navigation: "Основная навигация",
+  workspace: "Бизнес и студенческие команды", catalog: "Каталог задач", mine: "Мои задачи",
+  proposals: "Отклики команд", offers: "Предложения", builder: "Создание задачи",
+  role: "Демонстрационная роль", business: "Бизнес", team: "Команда",
+  demo: "Демонстрационные роли без регистрации", loading: "Загружаем задачи…",
+  retry: "Повторить", close: "Закрыть уведомление", skip: "Перейти к содержимому",
+  footer: "Tubi · Казахстан", aiLive: "AI настроен", aiDemo: "AI: деморежим", aiUnknown: "Статус AI пока неизвестен",
+  saved: "Карточка сохранена. Следующий шаг — публикация.", published: "Задача опубликована. Команды могут откликаться.",
+  network: "Не удалось связаться с сервером. Ваши данные сохранены в форме. Повторите действие.",
+  invalid: "Проверьте введённые данные и повторите действие.",
+  failure: "Не удалось выполнить действие. Данные остались в форме. Попробуйте ещё раз.",
+};
+type CommonCopy = typeof ru;
+export const commonMessages: Record<Locale, CommonCopy> = {
+  ru,
+  kk: {
+    language: "Интерфейс тілі", home: "Tubi — басты бетке", navigation: "Негізгі навигация",
+    workspace: "Бизнес және студенттік командалар", catalog: "Тапсырмалар каталогы", mine: "Менің тапсырмаларым",
+    proposals: "Командалардың өтінімдері", offers: "Ұсыныстар", builder: "Тапсырма құру",
+    role: "Демонстрациялық рөл", business: "Бизнес", team: "Команда",
+    demo: "Тіркелусіз демонстрациялық рөлдер", loading: "Тапсырмалар жүктелуде…",
+    retry: "Қайталау", close: "Хабарламаны жабу", skip: "Мазмұнға өту",
+    footer: "Tubi · Қазақстан", aiLive: "AI бапталған", aiDemo: "AI: деморежим", aiUnknown: "AI күйі әзірге белгісіз",
+    saved: "Карточка сақталды. Келесі қадам — жариялау.", published: "Тапсырма жарияланды. Командалар өтінім бере алады.",
+    network: "Серверге қосылу мүмкін болмады. Деректеріңіз формада сақталды. Әрекетті қайталаңыз.",
+    invalid: "Енгізілген деректерді тексеріп, әрекетті қайталаңыз.",
+    failure: "Әрекет орындалмады. Деректер формада қалды. Қайталап көріңіз.",
+  },
+  en: {
+    language: "Interface language", home: "Tubi — home", navigation: "Main navigation",
+    workspace: "Businesses and student teams", catalog: "Task catalog", mine: "My tasks",
+    proposals: "Team proposals", offers: "Proposals", builder: "Create a task",
+    role: "Demo role", business: "Business", team: "Team",
+    demo: "Demo roles without registration", loading: "Loading tasks…",
+    retry: "Retry", close: "Dismiss notification", skip: "Skip to content",
+    footer: "Tubi · Kazakhstan", aiLive: "AI configured", aiDemo: "AI: demo mode", aiUnknown: "AI status is not available yet",
+    saved: "Card saved. The next step is publication.", published: "Task published. Teams can send proposals.",
+    network: "Cannot reach the server. Your input is still in the form. Please try again.",
+    invalid: "Check your input and try again.",
+    failure: "The action failed. Your input is still in the form. Please try again.",
+  },
+};
