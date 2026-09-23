@@ -1,10 +1,10 @@
 import { useSyncExternalStore } from "react";
 
-export type Locale = "ru" | "kk" | "en";
+export type Locale = "ru" | "kk";
 export const localeStorageKey = "tubi.locale";
 const listeners = new Set<() => void>();
 const isLocale = (value: unknown): value is Locale =>
-  value === "ru" || value === "kk" || value === "en";
+  value === "ru" || value === "kk";
 
 function readLocale(): Locale {
   try {
@@ -17,7 +17,7 @@ function readLocale(): Locale {
 
 let currentLocale = readLocale();
 export const getLocale = () => currentLocale;
-export const getApiLocale = (): "ru" | "kk" => currentLocale === "kk" ? "kk" : "ru";
+export const getApiLocale = (): Locale => currentLocale;
 
 export function setLocale(locale: Locale) {
   if (!isLocale(locale)) return;

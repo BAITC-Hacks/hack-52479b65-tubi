@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { LayoutGrid, LoaderCircle, MessageSquare, SquarePen } from "lucide-react";
 import type { Health, Proposal, Task, Team } from "../../contracts/types";
 import { errorMessage, request } from "./shared/http";
@@ -25,6 +25,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [toast, setToast] = useState("");
+  const main = useRef<HTMLElement>(null);
   const refresh = useCallback(async () => {
     const [taskData, proposalData, teamData, status] = await Promise.all([
       listTasks(true), listProposals(), listTeams(), request<Health>("/health"),
@@ -35,6 +36,9 @@ export default function App() {
     setHealth(status);
     setError(null);
   }, []);
+  useEffect(() => {
+    if (page !== "create") main.current?.focus({ preventScroll: true });
+  }, [page, selectedId]);
   useEffect(() => {
     refresh().catch(setError).finally(() => setLoading(false));
   }, [refresh]);
@@ -108,7 +112,7 @@ export default function App() {
             <LocaleSelect />
           </div>
         </header>
-        <main id="main-content" tabIndex={-1}>
+        <main ref={main} id="main-content" tabIndex={-1}>
           {error && <div role="alert" className="error-box">{errorMessage(error, locale)}
             <button className="text-button" onClick={() => refresh().catch(setError)}>{copy.retry}</button>
           </div>}

@@ -1,9 +1,11 @@
-from typing import Annotated, Literal
+from typing import Annotated, Generic, Literal, TypeVar
 from urllib.parse import urlparse
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StringConstraints, field_validator
 
 Category = Literal['analytics', 'automation', 'education', 'marketing', 'other']
 CardField = Literal['title', 'context', 'need', 'users', 'data', 'expected_result', 'success_criteria', 'constraints', 'contact', 'interaction_format']
+Level = Literal['draft', 'working', 'ready', 'priority']
+Sort = Literal['score_desc', 'newest']
 Text = Annotated[str, StringConstraints(strip_whitespace=True, max_length=6000)]
 
 
@@ -35,7 +37,7 @@ class EvaluateInput(StrictModel):
 
 
 class SaveInput(EvaluateInput):
-    confirmed: bool
+    confirmed: StrictBool
 
 
 class Answer(StrictModel):
@@ -64,6 +66,47 @@ class AIResult(StrictModel):
     missing_fields: list[CardField]
 
 
+class PrepareResponse(AIResult):
+    mode: Literal['live', 'fallback']
+    warnings: list[str]
+
+
+class Breakdown(StrictModel):
+    key: str
+    earned: int = Field(ge=0, le=20)
+    max: int = Field(ge=0, le=20)
+
+
+class Improvement(StrictModel):
+    fields: list[CardField]
+    message: str
+
+
+class Rating(StrictModel):
+    score: int = Field(ge=0, le=100)
+    level: Level
+    breakdown: list[Breakdown]
+    improvements: list[Improvement]
+
+
+class Task(StrictModel):
+    id: str
+    card: Card
+    rating: Rating
+    confirmed: bool
+    status: Literal['draft', 'published']
+    created_at: str
+    updated_at: str
+
+
+class Team(StrictModel):
+    id: str
+    name: str
+    interests: list[str]
+    skills: list[str]
+    technologies: list[str]
+
+
 class ProposalInput(StrictModel):
     team_id: Annotated[str, StringConstraints(min_length=1, max_length=80)]
     idea: Annotated[str, StringConstraints(strip_whitespace=True, min_length=5, max_length=3000)]
@@ -84,3 +127,34 @@ class ProposalInput(StrictModel):
 
 class DecisionInput(StrictModel):
     status: Literal['accepted', 'rejected']
+
+
+class Proposal(ProposalInput):
+    id: str
+    task_id: str
+    status: Literal['pending', 'accepted', 'rejected']
+    created_at: str
+    milestone_confirmed: bool
+    points: int = Field(ge=0)
+
+
+Item = TypeVar('Item')
+
+
+class Items(StrictModel, Generic[Item]):
+    items: list[Item]
+
+
+class Health(StrictModel):
+    status: Literal['ok']
+    ai_mode: Literal['live', 'fallback']
+
+
+class ErrorDetail(StrictModel):
+    code: str
+    message: str
+    fields: list[str]
+
+
+class ErrorResponse(StrictModel):
+    error: ErrorDetail

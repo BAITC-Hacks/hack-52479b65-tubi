@@ -13,7 +13,6 @@ export default function LocaleSelect() {
     <select value={locale} onChange={(event) => setLocale(event.target.value as Locale)}>
       <option value="kk" lang="kk">Қазақша</option>
       <option value="ru" lang="ru">Русский</option>
-      <option value="en" lang="en">English</option>
     </select>
   </label>;
 }

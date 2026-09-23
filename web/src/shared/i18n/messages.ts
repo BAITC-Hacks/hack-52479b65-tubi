@@ -29,17 +29,4 @@ export const commonMessages: Record<Locale, CommonCopy> = {
     invalid: "Енгізілген деректерді тексеріп, әрекетті қайталаңыз.",
     failure: "Әрекет орындалмады. Деректер формада қалды. Қайталап көріңіз.",
   },
-  en: {
-    language: "Interface language", home: "Tubi — home", navigation: "Main navigation",
-    workspace: "Businesses and student teams", catalog: "Task catalog", mine: "My tasks",
-    proposals: "Team proposals", offers: "Proposals", builder: "Create a task",
-    role: "Demo role", business: "Business", team: "Team",
-    demo: "Demo roles without registration", loading: "Loading tasks…",
-    retry: "Retry", close: "Dismiss notification", skip: "Skip to content",
-    footer: "Tubi · Kazakhstan", aiLive: "AI configured", aiDemo: "AI: demo mode", aiUnknown: "AI status is not available yet",
-    saved: "Card saved. The next step is publication.", published: "Task published. Teams can send proposals.",
-    network: "Cannot reach the server. Your input is still in the form. Please try again.",
-    invalid: "Check your input and try again.",
-    failure: "The action failed. Your input is still in the form. Please try again.",
-  },
 };

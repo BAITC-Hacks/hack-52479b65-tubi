@@ -53,16 +53,16 @@ describe("business screens", () => {
     expect(api.prepareTask).not.toHaveBeenCalled();
   });
 
-  it("keeps input and focus across all three interface languages", async () => {
+  it("keeps input and focus across both interface languages", async () => {
     const { user } = setup();
     await user.type(screen.getByRole("textbox", { name: "Ваша задача" }), "Отзывы нашей кофейни");
     await user.selectOptions(screen.getByRole("combobox", { name: "Язык интерфейса" }), "kk");
     expect(screen.getByRole("textbox", { name: "Сіздің тапсырмаңыз" })).toHaveValue("Отзывы нашей кофейни");
     expect(localStorage.getItem("tubi.locale")).toBe("kk");
     expect(document.documentElement.lang).toBe("kk");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Интерфейс тілі" }), "en");
-    expect(screen.getByRole("textbox", { name: "Your task" })).toHaveValue("Отзывы нашей кофейни");
-    expect(screen.getByRole("combobox", { name: "Interface language" })).toHaveFocus();
+    await user.selectOptions(screen.getByRole("combobox", { name: "Интерфейс тілі" }), "ru");
+    expect(screen.getByRole("textbox", { name: "Ваша задача" })).toHaveValue("Отзывы нашей кофейни");
+    expect(screen.getByRole("combobox", { name: "Язык интерфейса" })).toHaveFocus();
   });
 
   it("shows one question at a time and retains answers after an API error", async () => {
@@ -70,7 +70,7 @@ describe("business screens", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Ваша задача" }), { target: { value: "Отзывы нашей кофейни" } });
     await user.click(screen.getByRole("button", { name: "Перейти к вопросам" }));
     expect(screen.getAllByRole("textbox")).toHaveLength(1);
-    expect(screen.getByRole("heading", { name: "Что именно вы хотите изменить или улучшить?" })).toHaveFocus();
+    expect(screen.getByRole("heading", { name: "Что изменить?" })).toHaveFocus();
     expect(screen.getByText(/Команда сосредоточится/)).toBeVisible();
     await user.type(screen.getByLabelText("Ваш ответ"), "Находить жалобы");
     await user.click(screen.getByRole("button", { name: "Далее" }));
@@ -83,8 +83,8 @@ describe("business screens", () => {
     expect(screen.getByLabelText("Ваш ответ")).toHaveValue("Отчёт по жалобам");
     await user.click(screen.getByRole("button", { name: "Назад" }));
     expect(screen.getByLabelText("Ваш ответ")).toHaveValue("Таблица CSV");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Язык интерфейса" }), "en");
-    expect(screen.getByLabelText("Your answer")).toHaveValue("Таблица CSV");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Язык интерфейса" }), "kk");
+    expect(screen.getByLabelText("Сіздің жауабыңыз")).toHaveValue("Таблица CSV");
   });
 
   it("requires confirmation, clears it after editing, and publishes only after saving", async () => {
@@ -131,11 +131,38 @@ describe("business screens", () => {
   it("distinguishes a live response from the demo and preserves the server question", async () => {
     vi.mocked(api.prepareTask).mockResolvedValueOnce({ ...prepared, mode: "live" });
     const { user } = setup();
-    act(() => setLocale("en"));
-    fireEvent.change(screen.getByLabelText("Your task"), { target: { value: "Отзывы нашей кофейни" } });
-    await user.click(screen.getByRole("button", { name: "Continue to questions" }));
-    expect(screen.getByText("Response prepared by AI")).toBeVisible();
+    fireEvent.change(screen.getByLabelText("Ваша задача"), { target: { value: "Отзывы нашей кофейни" } });
+    await user.click(screen.getByRole("button", { name: "Перейти к вопросам" }));
+    act(() => setLocale("kk"));
+    expect(screen.getByText("Жауапты AI дайындады")).toBeVisible();
     expect(screen.getByRole("heading", { name: "Что изменить?" })).toBeVisible();
-    expect(screen.getByText("The server response is shown in the language it was received in.")).toBeVisible();
+    expect(screen.getByText("Бұрын алынған сұрақтар мен ескертулер бастапқы тілінде сақталды. Жауаптарыңыз аударылған жоқ.")).toBeVisible();
+  });
+
+  it("shows distinct server follow-up questions even when they target the same known field", async () => {
+    vi.mocked(api.prepareTask).mockResolvedValueOnce({ ...prepared, questions: [
+      { id: "data-access", fields: ["data"], text: "Как команда получит доступ к таблице?" },
+      { id: "data-owner", fields: ["data"], text: "Кто сможет объяснить столбцы таблицы?" },
+      prepared.questions[2],
+    ] });
+    const { user } = setup();
+    fireEvent.change(screen.getByLabelText("Ваша задача"), { target: { value: "Есть CSV с отзывами" } });
+    await user.click(screen.getByRole("button", { name: "Перейти к вопросам" }));
+    expect(screen.getByRole("heading", { name: "Как команда получит доступ к таблице?" })).toBeVisible();
+    await user.type(screen.getByLabelText("Ваш ответ"), "Передадим CSV" );
+    await user.click(screen.getByRole("button", { name: "Далее" }));
+    expect(screen.getByRole("heading", { name: "Кто сможет объяснить столбцы таблицы?" })).toBeVisible();
+  });
+
+  it.each(["live", "fallback"] as const)("shows every server warning in %s mode", async (mode) => {
+    const warnings = ["Срок не подтверждён исходным текстом.", "Уточните контакт бизнеса."];
+    vi.mocked(api.prepareTask).mockResolvedValueOnce({ ...prepared, mode, warnings });
+    const { user } = setup();
+    fireEvent.change(screen.getByLabelText("Ваша задача"), { target: { value: "Отзывы нашей кофейни" } });
+    await user.click(screen.getByRole("button", { name: "Перейти к вопросам" }));
+    const list = screen.getByRole("list", { name: "Что нужно проверить" });
+    for (const warning of warnings) expect(list).toHaveTextContent(warning);
+    act(() => setLocale("kk"));
+    for (const warning of warnings) expect(screen.getByRole("list", { name: "Нені тексеру керек" })).toHaveTextContent(warning);
   });
 });

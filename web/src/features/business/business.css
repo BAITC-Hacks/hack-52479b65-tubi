@@ -10,6 +10,8 @@
 .input-meta > span { margin-left: auto; }
 .form-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 28px; border-top: 1px solid var(--line); padding-top: 24px; }
 .ai-notice { display: grid; gap: 4px; font-size: .9rem; }
+.ai-warnings { margin: 8px 0 0; padding-left: 20px; }
+.ai-warnings li + li { margin-top: 4px; }
 .question-purpose { padding-left: 16px; border-left: 3px solid var(--accent); color: var(--muted); }
 .editor-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 24px; }
 .editor-fields .wide { grid-column: 1 / -1; }

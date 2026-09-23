@@ -64,7 +64,12 @@ export default function BusinessPage({ existing, onDone, onCancel, onSaved }: {
         <div className="notice ai-notice">
           <strong>{aiMode === "live" ? copy.aiLive : copy.aiDemo}</strong>
           <span>{aiMode === "live" ? copy.aiLiveHint : copy.aiDemoHint}</span>
-          {aiMode === "live" && locale !== "ru" && <span>{copy.sourceLanguage}</span>}
+          {locale !== form.responseLocale && <span>{copy.sourceLanguage}</span>}
+          {form.warnings.length > 0 && (
+            <ul className="ai-warnings" aria-label={copy.aiWarnings}>
+              {form.warnings.map((warning, index) => <li key={index}>{warning}</li>)}
+            </ul>
+          )}
         </div>
       )}
 
@@ -110,8 +115,7 @@ export default function BusinessPage({ existing, onDone, onCancel, onSaved }: {
             <fieldset disabled={form.busy}>
               <p className="muted">{copy.question} {form.questionIndex + 1} / {form.questions.length}</p>
               <h2 ref={heading} tabIndex={-1} id="question-heading">
-                {form.questionMode === "fallback" && question.fields.length
-                  ? question.fields.map((field) => copy.questions[field]).join(" ") : question.text}
+                {question.text}
               </h2>
               <p id="question-purpose" className="question-purpose">
                 <strong>{copy.why}: </strong>{question.fields.map((field) => copy.reasons[field]).join(" ")}

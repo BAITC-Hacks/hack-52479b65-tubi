@@ -2,6 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AIResponse, Rating, Task } from "../../../../contracts/types";
 import { emptyCard } from "../../shared/constants";
+import { setLocale } from "../../shared/i18n";
 import * as api from "./api";
 import { useBusinessForm } from "./useBusinessForm";
 
@@ -22,6 +23,7 @@ const prepared: AIResponse = {
 
 describe("business form lifecycle", () => {
   beforeEach(() => {
+    setLocale("ru");
     vi.useFakeTimers();
     vi.mocked(api.evaluateTask).mockResolvedValue(rating);
     vi.mocked(api.prepareTask).mockResolvedValue(prepared);
@@ -67,6 +69,53 @@ describe("business form lifecycle", () => {
     await act(() => result.current.compose());
     expect(result.current.card.title).toBe("Уточнённое название");
     expect(api.prepareTask).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not attach an old answer to a reused ID or a different question about the same field", async () => {
+    const { result } = renderHook(() => useBusinessForm());
+    act(() => result.current.setDescription("Анализ отзывов гостей"));
+    await act(() => result.current.clarify());
+    const answers = { need: "Находить жалобы", data: "CSV с отзывами", result: "Отчёт" };
+    act(() => result.current.setAnswers(answers));
+    vi.mocked(api.prepareTask).mockResolvedValueOnce({ ...prepared, questions: [
+      { id: "need", fields: ["contact"], text: "Что изменить?" },
+      { id: "data", fields: ["data"], text: "Как команда получит доступ к CSV?" },
+      { id: "new-result", fields: ["expected_result"], text: "Какой результат?" },
+    ] });
+    act(() => {
+      result.current.go("description");
+      result.current.setDescription("Анализ отзывов гостей из CSV");
+    });
+    await act(() => result.current.clarify());
+    expect(result.current.answers).toEqual({ need: "", data: "", "new-result": "Отчёт" });
+    await act(() => result.current.compose());
+    expect(api.prepareTask).toHaveBeenCalledTimes(2);
+
+    // Returning to the original question restores its original answer even after ID reuse.
+    act(() => {
+      result.current.go("description");
+      result.current.setDescription("Анализ отзывов гостей");
+    });
+    await act(() => result.current.clarify());
+    expect(result.current.answers).toEqual(answers);
+  });
+
+  it("keeps warnings and their language attached to the clarification and composition stages", async () => {
+    vi.mocked(api.prepareTask).mockResolvedValueOnce({ ...prepared, warnings: ["Шаблонные вопросы"] });
+    const { result } = renderHook(() => useBusinessForm());
+    act(() => result.current.setDescription("Анализ отзывов гостей"));
+    await act(() => result.current.clarify());
+    act(() => {
+      result.current.setAnswers({ need: "Анализ", data: "CSV", result: "Отчёт" });
+      setLocale("kk");
+    });
+    vi.mocked(api.prepareTask).mockResolvedValueOnce({ ...prepared, questions: [], warnings: ["Мерзім расталмаған"] });
+    await act(() => result.current.compose());
+    expect(result.current.warnings).toEqual(["Мерзім расталмаған"]);
+    expect(result.current.responseLocale).toBe("kk");
+    act(() => result.current.go("questions"));
+    expect(result.current.warnings).toEqual(["Шаблонные вопросы"]);
+    expect(result.current.responseLocale).toBe("ru");
   });
 
   it("resets confirmation after card edits", () => {

@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { AIResponse, Card, Category, Question, Rating, Task } from "../../../../contracts/types";
 import { emptyCard } from "../../shared/constants";
+import { getLocale, type Locale } from "../../shared/i18n";
 import { evaluateTask, prepareTask, publishTask, saveTask } from "./api";
 
 export type BusinessStep = "description" | "questions" | "card" | "review" | "saved";
+
+function questionKey(question: Question) {
+  return JSON.stringify([[...question.fields].sort(), question.text.trim()]);
+}
 
 export function useBusinessForm(existing?: Task) {
   const [step, setStep] = useState<BusinessStep>(existing ? "card" : "description");
@@ -14,6 +19,9 @@ export function useBusinessForm(existing?: Task) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [ai, setAi] = useState<AIResponse | null>(null);
   const [questionMode, setQuestionMode] = useState<AIResponse["mode"]>("fallback");
+  const [questionWarnings, setQuestionWarnings] = useState<string[]>([]);
+  const [questionLocale, setQuestionLocale] = useState<Locale>(getLocale);
+  const [aiLocale, setAiLocale] = useState<Locale>(getLocale);
   const [card, setCard] = useState<Card>(existing?.card ?? { ...emptyCard });
   const [rating, setRating] = useState<Rating | null>(existing?.rating ?? null);
   const [ratingPending, setRatingPending] = useState(false);
@@ -28,6 +36,7 @@ export function useBusinessForm(existing?: Task) {
   const ratingVersion = useRef(0);
   const clarifiedInput = useRef("");
   const composedInput = useRef("");
+  const answerHistory = useRef(new Map<string, string>());
   const mounted = useRef(true);
   const evaluating = step === "card" || step === "review";
 
@@ -98,22 +107,23 @@ export function useBusinessForm(existing?: Task) {
       return;
     }
     await run(async () => {
+      const requestLocale = getLocale();
       const result = await prepareTask({ stage: "clarify", category, description, answers: [] });
       if (!mounted.current) return;
-      // Keep old answers even when the user revisits the description.
-      setAnswers((old) => {
-        const next = { ...old };
-        result.questions.forEach((question) => {
-          if (next[question.id] !== undefined) return;
-          const previous = questions.find((q) => q.fields.join() === question.fields.join());
-          if (previous) next[question.id] = old[previous.id] ?? "";
-        });
-        return next;
-      });
+      // IDs are opaque and may be reused for a different question by the server.
+      for (const question of questions) {
+        answerHistory.current.set(questionKey(question), answers[question.id] ?? "");
+      }
+      setAnswers(Object.fromEntries(result.questions.map((question) => [
+        question.id, answerHistory.current.get(questionKey(question)) ?? "",
+      ])));
       setQuestions(result.questions);
       setQuestionMode(result.mode);
+      setQuestionWarnings(result.warnings);
+      setQuestionLocale(requestLocale);
       setQuestionIndex(0);
       setAi(result);
+      setAiLocale(requestLocale);
       clarifiedInput.current = input;
       setConfirmed(false);
       setStep("questions");
@@ -128,9 +138,11 @@ export function useBusinessForm(existing?: Task) {
     const signature = JSON.stringify(input);
     if (composedInput.current === signature) { go("card"); return; }
     await run(async () => {
+      const requestLocale = getLocale();
       const result = await prepareTask(input);
       if (!mounted.current) return;
       setAi(result);
+      setAiLocale(requestLocale);
       changeCard(result.card);
       composedInput.current = signature;
       setStep("card");
@@ -161,6 +173,8 @@ export function useBusinessForm(existing?: Task) {
   return {
     step, go, description, setDescription, category, setCategory,
     questions, questionIndex, setQuestionIndex, answers, setAnswers, ai, questionMode,
+    warnings: step === "questions" ? questionWarnings : ai?.warnings ?? [],
+    responseLocale: step === "questions" ? questionLocale : aiLocale,
     card, changeCard, rating, ratingPending, ratingError, retryRating: () => setRetry((n) => n + 1),
     confirmed, setConfirmed, busy, error, saved, clarify, compose, save, publish,
   };
