@@ -8,8 +8,8 @@ import type {
 } from "../../../../contracts/types";
 export const prepareTask = (input: AIRequest) =>
   request<AIResponse>("/ai/prepare", json("POST", input));
-export const evaluateTask = (card: Card) =>
-  request<Rating>("/tasks/evaluate", json("POST", { card }));
+export const evaluateTask = (card: Card, signal?: AbortSignal) =>
+  request<Rating>("/tasks/evaluate", { ...json("POST", { card }), signal });
 export const saveTask = (card: Card, id?: string) =>
   request<Task>(
     id ? `/tasks/${id}` : "/tasks",

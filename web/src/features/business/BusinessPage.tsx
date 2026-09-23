@@ -1,382 +1,191 @@
-import { useEffect, useRef, useState } from "react";
-import {
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  FileText,
-  LoaderCircle,
-  Save,
-  Send,
-  Sparkles,
-} from "lucide-react";
-import type {
-  AIResponse,
-  Card,
-  Category,
-  Rating,
-  Task,
-} from "../../../../contracts/types";
-import { categories, emptyCard } from "../../shared/constants";
-import { evaluateTask, prepareTask, publishTask, saveTask } from "./api";
+import { useEffect, useRef } from "react";
+import type { CardField, Category, Task } from "../../../../contracts/types";
+import { useLocale } from "../../shared/i18n";
+import { errorMessage } from "../../shared/http";
+import { useBusinessCopy } from "./locales";
+import { useBusinessForm, type BusinessStep } from "./useBusinessForm";
 import TaskEditor from "./TaskEditor";
 import RatingPanel from "./RatingPanel";
 import "./business.css";
 
-export default function BusinessPage({
-  existing,
-  onDone,
-  onCancel,
-}: {
-  existing?: Task;
-  onDone: (task: Task) => void;
-  onCancel: () => void;
+const steps: BusinessStep[] = ["description", "questions", "card", "review", "saved"];
+
+export default function BusinessPage({ existing, onDone, onCancel, onSaved }: {
+  existing?: Task; onDone: (task: Task) => void; onCancel: () => void; onSaved?: (task: Task) => void;
 }) {
-  const [step, setStep] = useState(existing ? 2 : 0);
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState<Category>("analytics");
-  const [prepared, setPrepared] = useState<AIResponse | null>(null);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [card, setCard] = useState<Card>(existing?.card || { ...emptyCard });
-  const [rating, setRating] = useState<Rating | null>(existing?.rating || null);
-  const [confirmed, setConfirmed] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [ratingError, setRatingError] = useState("");
-  const savedId = useRef(existing?.id);
+  const form = useBusinessForm(existing);
+  const copy = useBusinessCopy();
+  const { locale } = useLocale();
+  const heading = useRef<HTMLHeadingElement>(null);
+  const focusField = useRef<CardField | null>(null);
+  const question = form.questions[form.questionIndex];
+  const aiMode = form.step === "questions" ? form.questionMode : form.ai?.mode;
+  const published = form.saved?.status === "published";
+  const titleReady = (form.card.title ?? "").trim().length >= 3;
+  const stepIndex = steps.indexOf(form.step);
 
   useEffect(() => {
-    if (step !== 2) return;
-    let cancelled = false;
-    const timer = setTimeout(
-      () =>
-        evaluateTask(card)
-          .then((data) => {
-            if (!cancelled) {
-              setRating(data);
-              setRatingError("");
-            }
-          })
-          .catch((e) => {
-            if (!cancelled) setRatingError(e.message);
-          }),
-      250,
-    );
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [card, step]);
+    const target = focusField.current && document.getElementById(`card-${focusField.current}`);
+    if (target) target.focus();
+    else heading.current?.focus({ preventScroll: true });
+    focusField.current = null;
+  }, [form.step, form.questionIndex, published]);
 
-  async function prepare(stage: "clarify" | "compose") {
-    setBusy(true);
-    setError("");
-    try {
-      const result = await prepareTask({
-        stage,
-        category,
-        description,
-        answers:
-          stage === "compose"
-            ? (prepared?.questions || []).map((q) => ({
-                question_id: q.id,
-                fields: q.fields,
-                question: q.text,
-                answer: answers[q.id] || "",
-              }))
-            : [],
-      });
-      setPrepared(result);
-      setCard(result.card);
-      setConfirmed(false);
-      setStep(stage === "clarify" ? 1 : 2);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
+  useEffect(() => {
+    if (form.saved) onSaved?.(form.saved);
+  }, [form.saved, onSaved]);
+
+  function improve(field: CardField) {
+    if (form.step === "card") document.getElementById(`card-${field}`)?.focus();
+    else { focusField.current = field; form.go("card"); }
   }
 
-  async function finish(publish: boolean) {
-    setBusy(true);
-    setError("");
-    try {
-      let task = await saveTask(card, savedId.current);
-      savedId.current = task.id;
-      if (publish) task = await publishTask(task.id);
-      onDone(task);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
+  const rating = (
+    <RatingPanel rating={form.ratingPending ? null : form.rating} preview
+      pending={form.ratingPending} error={Boolean(form.ratingError)}
+      onRetry={form.retryRating} onImprove={improve} />
+  );
 
   return (
-    <div className="business-page page-enter">
-      <button className="text-button back" onClick={onCancel}>
-        <ArrowLeft size={16} /> К задачам
-      </button>
-      <div className="page-heading">
-        <div>
-          <div className="eyebrow">КОНСТРУКТОР ЗАДАЧИ</div>
-          <h1>
-            {existing
-              ? "Сделаем задачу понятнее"
-              : "От идеи — к первому решению"}
-          </h1>
-          <p>
-            Расскажите о своей задаче. Мы поможем собрать всё, что нужно
-            команде.
-          </p>
-        </div>
-      </div>
-      <div className="stepper">
-        {["Описание", "Уточнения", "Карточка и рейтинг"].map((label, i) => (
-          <div
-            key={label}
-            className={i === step ? "active" : i < step ? "complete" : ""}
-          >
-            <span>{i < step ? <Check size={14} /> : i + 1}</span>
-            {label}
-          </div>
+    <div className="business-page">
+      <button className="text-button back" disabled={form.busy} onClick={onCancel}>{copy.backToTasks}</button>
+      <header className="page-heading">
+        <div><h1>{copy.title}</h1><p>{copy.intro}</p></div>
+      </header>
+      <ol className="business-steps" aria-label={copy.title}>
+        {copy.steps.map((label, index) => (
+          <li key={steps[index]} aria-current={index === stepIndex ? "step" : undefined}>
+            <span aria-hidden="true">{index + 1}</span>{label}
+          </li>
         ))}
-      </div>
-      {error && (
-        <div role="alert" className="error-box">
-          {error}
+      </ol>
+      {form.error && <div className="error-box" role="alert">{errorMessage(form.error, locale)}</div>}
+      {form.ai && form.step !== "description" && form.step !== "saved" && (
+        <div className="notice ai-notice">
+          <strong>{aiMode === "live" ? copy.aiLive : copy.aiDemo}</strong>
+          <span>{aiMode === "live" ? copy.aiLiveHint : copy.aiDemoHint}</span>
+          {aiMode === "live" && locale !== "ru" && <span>{copy.sourceLanguage}</span>}
         </div>
       )}
-      {step === 0 && (
-        <div className="compose-layout">
-          <section className="panel description-panel">
-            <div className="section-heading">
-              <div className="icon-tile violet">
-                <FileText size={21} />
+
+      <section className="panel business-stage" aria-busy={form.busy}>
+        {form.step === "description" && (
+          <form onSubmit={(event) => { event.preventDefault(); void form.clarify(); }}>
+            <fieldset disabled={form.busy}>
+              <h2 ref={heading} tabIndex={-1}>{copy.steps[0]}</h2>
+              <label htmlFor="business-description"><span id="description-label">{copy.description}</span>
+                <textarea id="business-description" rows={6} value={form.description} required
+                  minLength={5} maxLength={6000} aria-describedby="description-hint" aria-labelledby="description-label"
+                  placeholder={copy.descriptionPlaceholder}
+                  onChange={(event) => form.setDescription(event.target.value)} />
+                <small className="field-hint" id="description-hint">{copy.descriptionHint}</small>
+              </label>
+              <div className="input-meta">
+                {!form.description && <button type="button" className="text-button"
+                  onClick={() => form.setDescription(copy.exampleText)}>{copy.example}</button>}
+                <span>{form.description.length}/6000</span>
               </div>
-              <div>
-                <h2>С чего начнём?</h2>
-                <p>Можно своими словами. Даже если идея пока сырая.</p>
+              <label htmlFor="business-category"><span>{copy.category}</span>
+                <select id="business-category" value={form.category}
+                  onChange={(event) => form.setCategory(event.target.value as Category)}>
+                  {Object.entries(copy.categories).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </label>
+              <div className="form-actions">
+                <button className="button primary" type="submit" disabled={form.description.trim().length < 5}>
+                  {form.busy ? copy.clarifying : copy.clarify}
+                </button>
               </div>
-            </div>
-            <label>
-              <span>Ваша задача</span>
-              <textarea
-                rows={7}
-                value={description}
-                maxLength={6000}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Например: мы получаем много отзывов и хотим быстрее понимать, на что жалуются клиенты…"
-              />
-            </label>
-            <div className="input-meta">
-              <button
-                className="text-button"
-                onClick={() =>
-                  setDescription(
-                    "Мы вручную читаем отзывы гостей кофейни и хотим быстрее находить повторяющиеся проблемы.",
-                  )
-                }
-              >
-                Попробовать пример
-              </button>
-              <span>{description.length}/6000</span>
-            </div>
-            <label>
-              <span>Направление задачи</span>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as Category)}
-              >
-                {Object.entries(categories).map(([key, label]) => (
-                  <option key={key} value={key}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="form-actions">
-              <button
-                className="button primary"
-                disabled={busy || description.trim().length < 5}
-                onClick={() => prepare("clarify")}
-              >
-                {busy ? (
-                  <LoaderCircle className="spin" size={17} />
-                ) : (
-                  <Sparkles size={17} />
-                )}{" "}
-                {busy ? "Готовим вопросы…" : "Помочь сформулировать"}
-                <ArrowRight size={16} />
-              </button>
-            </div>
-          </section>
-          <aside className="helper-panel">
-            <span className="hero-kicker">
-              <Sparkles size={15} /> ХОРОШАЯ ЗАДАЧА — ПОЛОВИНА РЕШЕНИЯ
-            </span>
-            <h3>
-              Чем понятнее задача,
-              <br />
-              тем легче найти команду.
-            </h3>
-            <p>
-              Ответьте на вопросы, проверьте карточку и добавьте детали. Каждое
-              уточнение помогает студентам начать работу.
-            </p>
-            <div className="helper-list">
-              <span>
-                01 <b>Опишите свою потребность</b>
-              </span>
-              <span>
-                02 <b>Добавьте важные детали</b>
-              </span>
-              <span>
-                03 <b>Получите предложения команд</b>
-              </span>
-            </div>
-            <p className="small">
-              Все сведения перед публикацией подтверждаете вы.
-            </p>
-          </aside>
-        </div>
-      )}
-      {step === 1 && prepared && (
-        <section className="panel questions-panel">
-          <div className="section-heading">
-            <div className="icon-tile violet">
-              <Sparkles size={22} />
-            </div>
-            <div>
-              <h2>Несколько вопросов по существу</h2>
-              <p>
-                Ответы станут основой карточки. Если пока не знаете — так и
-                напишите.
+            </fieldset>
+          </form>
+        )}
+
+        {form.step === "questions" && question && (
+          <form onSubmit={(event) => {
+            event.preventDefault();
+            if (!form.answers[question.id]?.trim()) return;
+            if (form.questionIndex < form.questions.length - 1) form.setQuestionIndex(form.questionIndex + 1);
+            else void form.compose();
+          }}>
+            <fieldset disabled={form.busy}>
+              <p className="muted">{copy.question} {form.questionIndex + 1} / {form.questions.length}</p>
+              <h2 ref={heading} tabIndex={-1} id="question-heading">
+                {form.questionMode === "fallback" && question.fields.length
+                  ? question.fields.map((field) => copy.questions[field]).join(" ") : question.text}
+              </h2>
+              <p id="question-purpose" className="question-purpose">
+                <strong>{copy.why}: </strong>{question.fields.map((field) => copy.reasons[field]).join(" ")}
               </p>
-            </div>
-          </div>
-          {prepared.warnings.map((w) => (
-            <div className="notice" key={w}>
-              {w}
-            </div>
-          ))}
-          {prepared.questions.map((q, i) => (
-            <label className="question-label" key={q.id}>
-              <span>
-                <b>{String(i + 1).padStart(2, "0")}</b>
-                {q.text}
-              </span>
-              <textarea
-                rows={3}
-                value={answers[q.id] || ""}
-                maxLength={6000}
-                onChange={(e) =>
-                  setAnswers({ ...answers, [q.id]: e.target.value })
-                }
-                placeholder="Ваш ответ…"
-              />
-            </label>
-          ))}
-          <div className="form-actions">
-            <button
-              className="button secondary"
-              disabled={busy}
-              onClick={() => setStep(0)}
-            >
-              Назад
-            </button>
-            <button
-              className="button primary"
-              disabled={
-                busy ||
-                prepared.questions.some((q) => !(answers[q.id] || "").trim())
-              }
-              onClick={() => prepare("compose")}
-            >
-              {busy ? (
-                <LoaderCircle className="spin" size={17} />
-              ) : (
-                <FileText size={17} />
-              )}{" "}
-              {busy ? "Собираем карточку…" : "Собрать карточку"}
-              <ArrowRight size={16} />
-            </button>
-          </div>
-        </section>
-      )}
-      {step === 2 && (
-        <div className="editor-layout">
-          <section className="panel">
-            <div className="section-heading">
-              <div className="icon-tile violet">
-                <FileText size={22} />
+              <label htmlFor="business-answer"><span id="answer-label">{copy.answer}</span>
+                <textarea id="business-answer" rows={5} required maxLength={6000}
+                  aria-describedby="question-heading question-purpose answer-hint" aria-labelledby="answer-label"
+                  value={form.answers[question.id] ?? ""}
+                  onChange={(event) => form.setAnswers({ ...form.answers, [question.id]: event.target.value })} />
+                <small className="field-hint" id="answer-hint">{copy.questionHint}</small>
+              </label>
+              <div className="form-actions">
+                <button type="button" className="button secondary" onClick={() => {
+                  if (form.questionIndex) form.setQuestionIndex(form.questionIndex - 1);
+                  else form.go("description");
+                }}>{copy.back}</button>
+                <button type="submit" className="button primary" disabled={!form.answers[question.id]?.trim()}>
+                  {form.busy ? copy.composing : form.questionIndex === form.questions.length - 1 ? copy.compose : copy.next}
+                </button>
               </div>
-              <div>
-                <h2>Карточка вашей задачи</h2>
-                <p>
-                  Проверьте текст и заполните то, что пока осталось неизвестным.
-                </p>
-              </div>
-            </div>
-            {prepared?.warnings.map((w) => (
-              <div className="notice" key={w}>
-                {w}
-              </div>
-            ))}
-            <TaskEditor
-              card={card}
-              onChange={(next) => {
-                setCard(next);
-                setConfirmed(false);
-              }}
-            />
-            <label className="confirmation">
-              <input
-                type="checkbox"
-                checked={confirmed}
-                onChange={(e) => setConfirmed(e.target.checked)}
-              />
-              <span>
-                Я проверил(а) карточку и подтверждаю указанные сведения.
-              </span>
-            </label>
+            </fieldset>
+          </form>
+        )}
+
+        {form.step === "card" && (
+          <>
+            <h2 ref={heading} tabIndex={-1}>{copy.card}</h2><p className="muted">{copy.cardHint}</p>
+            <TaskEditor card={form.card} onChange={form.changeCard} />
+            {rating}
             <div className="form-actions">
-              <button
-                className="button secondary"
-                disabled={busy || !confirmed}
-                onClick={() => finish(false)}
-              >
-                <Save size={16} /> Сохранить
-              </button>
-              <button
-                className="button primary"
-                disabled={
-                  busy || !confirmed || (card.title || "").trim().length < 3
-                }
-                onClick={() => finish(true)}
-              >
-                {busy ? (
-                  <LoaderCircle className="spin" size={17} />
-                ) : (
-                  <Send size={17} />
-                )}{" "}
-                {busy
-                  ? "Сохраняем…"
-                  : existing?.status === "published"
-                    ? "Обновить в каталоге"
-                    : "Опубликовать задачу"}
+              {form.questions.length > 0 && <button className="button secondary" onClick={() => form.go("questions")}>{copy.back}</button>}
+              <button className="button primary" onClick={() => form.go("review")}>{copy.review}</button>
+            </div>
+          </>
+        )}
+
+        {form.step === "review" && (
+          <fieldset disabled={form.busy}>
+            <h2 ref={heading} tabIndex={-1}>{copy.steps[3]}</h2>
+            <p>{copy.reviewHint}</p>
+            <p className="review-title">{form.card.title || copy.titleRequired}</p>
+            {rating}
+            <label className="confirmation" htmlFor="business-confirmation">
+              <input id="business-confirmation" type="checkbox" checked={form.confirmed}
+                aria-describedby="confirmation-hint" onChange={(event) => form.setConfirmed(event.target.checked)} />
+              <span>{copy.confirmation}</span>
+            </label>
+            <p id="confirmation-hint" className="small muted">{copy.pendingHint}</p>
+            <div className="form-actions">
+              <button className="button secondary" onClick={() => form.go("card")}>{copy.edit}</button>
+              <button className="button primary" disabled={!form.confirmed} onClick={() => void form.save()}>
+                {form.busy ? copy.saving : copy.save}
               </button>
             </div>
-          </section>
-          <div>
-            {ratingError && (
-              <div className="error-box" role="alert">
-                {ratingError}
-              </div>
-            )}
-            <RatingPanel rating={rating} preview />
-          </div>
-        </div>
-      )}
+          </fieldset>
+        )}
+
+        {form.step === "saved" && form.saved && (
+          <fieldset disabled={form.busy}>
+            <h2 ref={heading} tabIndex={-1} role="status">{published ? copy.published : copy.saved}</h2>
+            <p>{published ? copy.publishedHint : copy.savedHint}</p>
+            <p className="review-title">{form.saved.card.title}</p>
+            {!published && !titleReady && <p className="notice">{copy.titleRequired}</p>}
+            <div className="form-actions">
+              {published ? <button className="button primary" onClick={() => onDone(form.saved!)}>{copy.view}</button> : (
+                <button className="button primary" disabled={!form.confirmed || !form.saved.confirmed || !titleReady}
+                  onClick={() => void form.publish()}>{form.busy ? copy.publishing : copy.publish}</button>
+              )}
+              {!published && <button className="button secondary" onClick={() => form.go("card")}>{copy.edit}</button>}
+              {!published && <button className="text-button" onClick={() => onDone(form.saved!)}>{copy.view}</button>}
+            </div>
+          </fieldset>
+        )}
+      </section>
     </div>
   );
 }
