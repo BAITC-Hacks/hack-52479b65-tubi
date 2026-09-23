@@ -1,24 +1,9 @@
 """Contract checks against a temporary database. No external API requests."""
-import os
-import tempfile
 import unittest
-from unittest.mock import patch
-from fastapi.testclient import TestClient
-from app.main import app
+from helpers import ApiTestCase
 
 
-class FlowTest(unittest.TestCase):
-    def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(prefix='tubi-test-')
-        self.env = patch.dict(os.environ, {'TUBI_DB_PATH': os.path.join(self.temp.name, 'test.sqlite3'), 'OPENAI_API_KEY': ''})
-        self.env.start()
-        self.client = TestClient(app)
-        self.client.__enter__()
-
-    def tearDown(self):
-        self.client.__exit__(None, None, None)
-        self.env.stop()
-        self.temp.cleanup()
+class FlowTest(ApiTestCase):
 
     def test_draft_to_manual_selection_and_milestone(self):
         payload = {'stage': 'clarify', 'category': 'analytics', 'description': 'Отзывы читаем вручную и хотим ускорить работу.', 'answers': []}
@@ -29,7 +14,7 @@ class FlowTest(unittest.TestCase):
         self.assertGreaterEqual(len(prepared['questions']), 3)
         self.assertIsNone(prepared['card']['data'])
         before = self.client.post('/api/tasks/evaluate', json={'card': prepared['card']}).json()['score']
-        answers = {'need': 'Группировать отзывы по темам', 'data': 'CSV из 100 обезличенных отзывов', 'expected_result': 'Таблица тем с примерами отзывов'}
+        answers = {'need': 'Группировать отзывы по темам', 'data': 'CSV из 100 обезличенных отзывов', 'expected_result': 'Таблица тем с примерами отзывов', 'success_criteria': 'Проверим точность на 30 отзывах'}
         payload.update(stage='compose', answers=[{'question_id': q['id'], 'fields': q['fields'], 'question': q['text'], 'answer': answers[q['fields'][0]]} for q in prepared['questions']])
         card = self.client.post('/api/ai/prepare', json=payload).json()['card']
         task = self.client.post('/api/tasks', json={'card': card, 'confirmed': True}).json()
@@ -72,8 +57,9 @@ class FlowTest(unittest.TestCase):
         items = self.client.get('/api/tasks?category=analytics&level=priority').json()['items']
         self.assertTrue(items)
         self.assertTrue(all(t['card']['category'] == 'analytics' and t['rating']['score'] >= 90 for t in items))
-        from app.db import initialize
-        initialize()
+        from app.seed import seed_database
+        self.app.state.database.initialize()
+        seed_database(self.app.state.database)
         self.assertEqual(len(self.client.get('/api/tasks').json()['items']), 5)
 
 

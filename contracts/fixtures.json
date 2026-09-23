@@ -1,16 +1,15 @@
 {
   "prepare_request": {
     "stage": "clarify",
-    "description": "Отзывы читаем вручную и хотим ускорить работу.",
+    "description": "Мы вручную читаем отзывы гостей кофейни в Алматы.",
     "category": "analytics",
     "answers": []
   },
   "prepare_response": {
-    "mode": "fallback",
     "card": {
-      "title": "Отзывы читаем вручную и хотим ускорить работу.",
+      "title": "Мы вручную читаем отзывы гостей кофейни в Алматы.",
       "category": "analytics",
-      "context": "Отзывы читаем вручную и хотим ускорить работу.",
+      "context": "Мы вручную читаем отзывы гостей кофейни в Алматы.",
       "need": null,
       "users": null,
       "data": null,
@@ -53,8 +52,122 @@
       "contact",
       "interaction_format"
     ],
+    "mode": "fallback",
     "warnings": [
-      "Fixture: deterministic fallback."
+      "Деморежим: шаблонные вопросы и перенос ваших ответов. Генерация OpenAI не подключена."
+    ]
+  },
+  "prepare_request_headers_kk": {
+    "Accept-Language": "kk"
+  },
+  "prepare_response_kk": {
+    "card": {
+      "title": "Мы вручную читаем отзывы гостей кофейни в Алматы.",
+      "category": "analytics",
+      "context": "Мы вручную читаем отзывы гостей кофейни в Алматы.",
+      "need": null,
+      "users": null,
+      "data": null,
+      "expected_result": null,
+      "success_criteria": null,
+      "constraints": null,
+      "contact": null,
+      "interaction_format": null
+    },
+    "questions": [
+      {
+        "id": "q_need",
+        "fields": [
+          "need"
+        ],
+        "text": "Нені өзгерткіңіз немесе жақсартқыңыз келеді?"
+      },
+      {
+        "id": "q_data",
+        "fields": [
+          "data"
+        ],
+        "text": "Қандай деректер немесе материалдар бар? Пішімі мен көзін көрсетіңіз."
+      },
+      {
+        "id": "q_expected_result",
+        "fields": [
+          "expected_result"
+        ],
+        "text": "Жұмыс соңында команда сізге нені тапсыруы керек?"
+      }
+    ],
+    "missing_fields": [
+      "need",
+      "data",
+      "expected_result",
+      "success_criteria",
+      "constraints",
+      "users",
+      "contact",
+      "interaction_format"
+    ],
+    "mode": "fallback",
+    "warnings": [
+      "Демо режимі: үлгі сұрақтар мен жауаптарыңызды көшіру. OpenAI генерациясы қосылмаған."
+    ]
+  },
+  "compose_request": {
+    "stage": "compose",
+    "description": "Мы вручную читаем отзывы гостей кофейни в Алматы.",
+    "category": "analytics",
+    "answers": [
+      {
+        "question_id": "q_need",
+        "fields": [
+          "need"
+        ],
+        "question": "Что именно вы хотите изменить или улучшить?",
+        "answer": "Группировать отзывы по темам"
+      },
+      {
+        "question_id": "q_data",
+        "fields": [
+          "data"
+        ],
+        "question": "Какие данные или материалы уже есть? Укажите формат и источник.",
+        "answer": "CSV из 100 обезличенных отзывов"
+      },
+      {
+        "question_id": "q_expected_result",
+        "fields": [
+          "expected_result"
+        ],
+        "question": "Что команда должна передать вам в конце работы?",
+        "answer": "Таблица тем с примерами отзывов"
+      }
+    ]
+  },
+  "compose_response": {
+    "card": {
+      "title": "Мы вручную читаем отзывы гостей кофейни в Алматы.",
+      "category": "analytics",
+      "context": "Мы вручную читаем отзывы гостей кофейни в Алматы.",
+      "need": "Группировать отзывы по темам",
+      "users": null,
+      "data": "CSV из 100 обезличенных отзывов",
+      "expected_result": "Таблица тем с примерами отзывов",
+      "success_criteria": null,
+      "constraints": null,
+      "contact": null,
+      "interaction_format": null
+    },
+    "questions": [],
+    "missing_fields": [
+      "success_criteria",
+      "constraints",
+      "users",
+      "contact",
+      "interaction_format"
+    ],
+    "mode": "fallback",
+    "warnings": [
+      "Деморежим: шаблонные вопросы и перенос ваших ответов. Генерация OpenAI не подключена."
     ]
   },
   "tasks_response": {
@@ -538,65 +651,65 @@
   "proposals_response": {
     "items": [
       {
-        "id": "proposal_1",
-        "task_id": "task_reviews",
         "team_id": "team_1",
         "idea": "Покажем темы отзывов и самые частые проблемы в простой панели.",
         "plan": "Изучим CSV, согласуем темы, соберём интерфейс и проверим 100 отзывов.",
         "deadline": "14 дней",
         "prototype_url": null,
+        "id": "proposal_1",
+        "task_id": "task_reviews",
         "status": "pending",
         "created_at": "2026-09-23T08:10:00Z",
         "milestone_confirmed": false,
         "points": 0
       },
       {
-        "id": "proposal_2",
-        "task_id": "task_reviews",
         "team_id": "team_2",
         "idea": "Соберём отчёт с темами и примерами отзывов по каждому филиалу.",
         "plan": "Анализ данных, классификация тем, контрольная выборка, демонстрация.",
         "deadline": "12 дней",
         "prototype_url": null,
+        "id": "proposal_2",
+        "task_id": "task_reviews",
         "status": "pending",
         "created_at": "2026-09-23T08:10:00Z",
         "milestone_confirmed": false,
         "points": 0
       },
       {
-        "id": "proposal_3",
-        "task_id": "task_requests",
         "team_id": "team_4",
         "idea": "Единая очередь заявок с понятными статусами.",
         "plan": "Согласуем поля формы, добавим очередь и историю изменения статусов.",
         "deadline": "10 дней",
         "prototype_url": null,
+        "id": "proposal_3",
+        "task_id": "task_requests",
         "status": "pending",
         "created_at": "2026-09-23T08:10:00Z",
         "milestone_confirmed": false,
         "points": 0
       },
       {
-        "id": "proposal_4",
-        "task_id": "task_onboarding",
         "team_id": "team_3",
         "idea": "Помощник по учебным инструкциям с указанием источников.",
         "plan": "Разметим документы, добавим поиск и проверим частые вопросы.",
         "deadline": "14 дней",
         "prototype_url": null,
+        "id": "proposal_4",
+        "task_id": "task_onboarding",
         "status": "pending",
         "created_at": "2026-09-23T08:10:00Z",
         "milestone_confirmed": false,
         "points": 0
       },
       {
-        "id": "proposal_5",
-        "task_id": "task_content",
         "team_id": "team_5",
         "idea": "Сравним вовлечённость публикаций по темам.",
         "plan": "Изучим таблицу, согласуем метрики и подготовим интерактивный отчёт.",
         "deadline": "7 дней",
         "prototype_url": null,
+        "id": "proposal_5",
+        "task_id": "task_content",
         "status": "pending",
         "created_at": "2026-09-23T08:10:00Z",
         "milestone_confirmed": false,
