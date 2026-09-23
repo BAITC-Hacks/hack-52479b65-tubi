@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from .. import services
-from ..schemas import DecisionInput, Items, Proposal, ProposalInput, Team
+from ..schemas import DecisionInput, Items, Proposal, ProposalInput, ReviewInput, Team
 from .dependencies import DatabaseDep
 
 router = APIRouter(tags=['proposals'])
@@ -41,3 +41,9 @@ def decide(proposal_id: str, body: DecisionInput, database: DatabaseDep):
 def milestone(proposal_id: str, database: DatabaseDep):
     with database.session(write=True) as repo:
         return services.confirm_milestone(repo, proposal_id)
+
+
+@router.post('/proposals/{proposal_id}/review', response_model=Proposal)
+def review(proposal_id: str, body: ReviewInput, database: DatabaseDep):
+    with database.session(write=True) as repo:
+        return services.review_proposal(repo, proposal_id, body)

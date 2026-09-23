@@ -30,6 +30,7 @@ import type {
 import { categories, labels, levels } from "../../shared/constants";
 import RatingPanel, { ScoreRing } from "../business/RatingPanel";
 import { confirmMilestone, createProposal, decideProposal } from "./api";
+import TeamReview from "./TeamReview";
 import "./marketplace.css";
 
 type Role = "business" | "team";
@@ -680,6 +681,7 @@ function ProposalCard({
           )}
         </div>
       )}
+      <TeamReview proposal={proposal} role={role} onRefresh={onRefresh} />
     </article>
   );
 }

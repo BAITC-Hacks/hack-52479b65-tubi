@@ -4,6 +4,7 @@ import type {
   Team,
   Proposal,
   ProposalInput,
+  ReviewInput,
 } from "../../../../contracts/types";
 export const listTasks = (mine = false) =>
   request<{ items: Task[] }>(`/tasks${mine ? "?include_drafts=true" : ""}`);
@@ -16,3 +17,5 @@ export const decideProposal = (id: string, status: "accepted" | "rejected") =>
   request<Proposal>(`/proposals/${id}`, json("PATCH", { status }));
 export const confirmMilestone = (id: string) =>
   request<Proposal>(`/proposals/${id}/milestone`, json("POST", {}));
+export const submitTeamReview = (id: string, input: ReviewInput) =>
+  request<Proposal>(`/proposals/${id}/review`, json("POST", input));

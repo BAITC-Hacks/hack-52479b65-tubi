@@ -129,6 +129,15 @@ class DecisionInput(StrictModel):
     status: Literal['accepted', 'rejected']
 
 
+class ReviewInput(StrictModel):
+    rating: int = Field(strict=True, ge=1, le=5)
+    comment: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
+
+
+class ProposalReview(ReviewInput):
+    created_at: str
+
+
 class Proposal(ProposalInput):
     id: str
     task_id: str
@@ -136,6 +145,7 @@ class Proposal(ProposalInput):
     created_at: str
     milestone_confirmed: bool
     points: int = Field(ge=0)
+    review: ProposalReview | None = None
 
 
 Item = TypeVar('Item')

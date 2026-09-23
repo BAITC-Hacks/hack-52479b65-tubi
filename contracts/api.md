@@ -12,6 +12,7 @@ Base URL: `/api`. UTF-8 JSON. IDs are strings. Timestamps are ISO 8601 UTC. Fron
 - Every endpoint declares a response model. Error envelopes now also cover server errors (500) and SQLite lock contention (503); retry a temporary failure without clearing the user's form.
 - Internal evidence never appears in JSON. TypeScript card/task/proposal interfaces need no changes. New fixture keys add Kazakh and compose examples while keeping all existing fixture keys.
 - Demo reliability update: no new routes, request fields, response fields or frontend migration. AI failures now have distinct localized warnings for authentication, connection, timeout and provider limits; continue displaying `warnings` as text. Questions must fit the existing answer limits (ID 80, text 6000, at most 10 target fields), otherwise the server uses fallback before returning them.
+- Team review addition: every proposal now includes `review: null | {rating, comment, created_at}`. `POST /proposals/{id}/review` saves one business review after selection and milestone confirmation. Older SQLite records are returned with `review=null`; no data reset or schema migration is needed.
 
 ## Card
 
@@ -58,13 +59,26 @@ Fallback copies explicit labels (Russian, Kazakh and field names), a small set o
 | POST /tasks/{id}/proposals | ProposalInput | Proposal, HTTP 201; only published tasks |
 | PATCH /proposals/{id} | `{status: "accepted" | "rejected"}` | Proposal; manual decision, independent per proposal |
 | POST /proposals/{id}/milestone | `{}` | Proposal; accepted only; grants 50 points once |
+| POST /proposals/{id}/review | `{rating: integer 1..5, comment: string}` | Proposal with review; accepted + milestone confirmed only |
 
 ## Teams and proposals
 
 Team: `{id, name, interests: string[], skills: string[], technologies: string[]}`.
 ProposalInput: `{team_id, idea, plan, deadline, prototype_url: string | null}`. Idea and plan each 5–3000 characters; deadline 1–200 characters. URLs must be http/https.
-Proposal adds `{id, task_id, status: "pending" | "accepted" | "rejected", created_at, milestone_confirmed: boolean, points: number}`.
+Proposal adds `{id, task_id, status: "pending" | "accepted" | "rejected", created_at, milestone_confirmed: boolean, points: number, review: ProposalReview | null}`.
 There is no global cap on proposals and no automatic assignment. Repeating the same decision is idempotent; changing an already completed decision returns 409. Milestone confirmation is also idempotent.
+
+### Business review after completed work
+
+`ProposalReview` is `{rating: integer 1..5, comment: string, created_at: string}`. The business can leave a review for an accepted proposal after confirming its completed milestone. Each proposal has at most one review; there is no automatic review or additional points award.
+
+```json
+{"rating": 5, "comment": "Команда передала понятный прототип и учла обратную связь."}
+```
+
+The server trims comment whitespace and requires 1–2000 characters. Rating must be a JSON integer; booleans, strings, fractional values and values outside 1–5 are rejected with 422. Unknown fields, including client-supplied `created_at`, are also rejected. The server sets the timestamp and stores the review with the proposal in the same SQLite write transaction.
+
+Success returns HTTP 200 and the complete proposal. Repeating the same rating and normalized comment returns the original review and timestamp. Different content after a review exists returns 409 without changing the saved review. Unselected or incomplete proposals return 409, a missing proposal returns 404. Error messages honor `Accept-Language`; the user's comment is never automatically translated. Both proposal list routes include the review. This remains a demo business role, not authenticated review ownership.
 
 ## Errors
 

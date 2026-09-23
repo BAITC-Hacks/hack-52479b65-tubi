@@ -6,7 +6,7 @@ from .db import Repository, Table
 from .errors import AppError
 from .localization import Locale
 from .rating import evaluate, filled
-from .schemas import Card, Category, DecisionInput, Level, Proposal, ProposalInput, SaveInput, Sort, Task
+from .schemas import Card, Category, DecisionInput, Level, Proposal, ProposalInput, ProposalReview, ReviewInput, SaveInput, Sort, Task
 
 MILESTONE_POINTS = 50
 
@@ -104,4 +104,18 @@ def confirm_milestone(repo: Repository, proposal_id: str) -> dict:
     if not proposal['milestone_confirmed']:
         proposal.update(milestone_confirmed=True, points=MILESTONE_POINTS)
         repo.update('proposals', proposal)
+    return proposal
+
+
+def review_proposal(repo: Repository, proposal_id: str, body: ReviewInput) -> dict:
+    proposal = require(repo, 'proposals', proposal_id)
+    if proposal['status'] != 'accepted' or not proposal['milestone_confirmed']:
+        raise AppError(409, 'review_requires_completion')
+    review = proposal.get('review')
+    if review is not None:
+        if review['rating'] != body.rating or review['comment'] != body.comment:
+            raise AppError(409, 'review_exists')
+        return proposal
+    proposal['review'] = ProposalReview(**body.model_dump(), created_at=now()).model_dump()
+    repo.update('proposals', proposal)
     return proposal

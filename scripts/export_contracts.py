@@ -8,8 +8,9 @@ sys.path.insert(0, str(root / 'server'))
 
 from app.ai import fallback
 from app.main import create_app
-from app.schemas import PrepareInput
+from app.schemas import PrepareInput, ProposalReview, ReviewInput
 from app.seed import seed_records
+from app.services import MILESTONE_POINTS
 
 
 def export() -> None:
@@ -32,6 +33,7 @@ def export() -> None:
         ],
     })
     records = seed_records()
+    review = ReviewInput(rating=5, comment='Команда передала понятный прототип и учла обратную связь.')
     fixtures = {
         'prepare_request': request.model_dump(),
         'prepare_response': responses['ru'],
@@ -42,6 +44,12 @@ def export() -> None:
         'tasks_response': {'items': records['tasks']},
         'teams_response': {'items': records['teams']},
         'proposals_response': {'items': records['proposals']},
+        'review_request': review.model_dump(),
+        'reviewed_proposal_response': {
+            **records['proposals'][0], 'status': 'accepted',
+            'milestone_confirmed': True, 'points': MILESTONE_POINTS,
+            'review': ProposalReview(**review.model_dump(), created_at='2026-09-23T09:00:00Z').model_dump(),
+        },
     }
     for name, payload in (('fixtures.json', fixtures), ('openapi.json', create_app().openapi())):
         (root / 'contracts' / name).write_text(json.dumps(payload, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')

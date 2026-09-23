@@ -64,6 +64,8 @@ export type ProposalInput = {
   deadline: string;
   prototype_url: string | null;
 };
+export type ReviewInput = { rating: number; comment: string };
+export type ProposalReview = ReviewInput & { created_at: string };
 export type Proposal = ProposalInput & {
   id: string;
   task_id: string;
@@ -71,5 +73,6 @@ export type Proposal = ProposalInput & {
   created_at: string;
   milestone_confirmed: boolean;
   points: number;
+  review: ProposalReview | null;
 };
 export type Health = { status: string; ai_mode: "live" | "fallback" };

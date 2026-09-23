@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from app.ai import fallback
 from app.errors import register_error_handlers
 from app.main import create_app
-from app.schemas import PrepareInput, PrepareResponse, Proposal, Task, Team
+from app.schemas import PrepareInput, PrepareResponse, Proposal, ReviewInput, Task, Team
 from app.seed import seed_records
 from helpers import ApiTestCase
 
@@ -45,6 +45,12 @@ class ContractTest(unittest.TestCase):
             self.assertEqual(fixtures[f'{table}_response']['items'], records[table])
             for item in records[table]:
                 model.model_validate(item)
+        review = ReviewInput.model_validate(fixtures['review_request'])
+        reviewed = Proposal.model_validate(fixtures['reviewed_proposal_response'])
+        self.assertEqual(reviewed.review.rating, review.rating)
+        self.assertEqual(reviewed.review.comment, review.comment)
+        self.assertEqual(reviewed.status, 'accepted')
+        self.assertTrue(reviewed.milestone_confirmed)
 
 
 class ErrorContractTest(ApiTestCase):
